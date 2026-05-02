@@ -19,6 +19,8 @@ internal static class ServeCommand
                   --ca-nid NID              CA NID (default: urn:nps:ca:local.banyan:root)
                   --allow-anon              disable NID auth on the NWP middleware (read-only demo)
                   --node-id ID              advertised node id in /.nwm (default: banyan-memory-node)
+                  --nid-auth MODE           NID auth enforcement: AnonymousAllowed (default)
+                                            | WritesRequired | AllRequired
                   --trusted-issuer NID=PUB  add a trusted CA issuer (repeatable)
 
                 Auth:
@@ -38,6 +40,8 @@ internal static class ServeCommand
         if (CommandContext.GetOption(args, "--ca-nid")    is { } n) opts.CaNid        = n;
         if (CommandContext.GetOption(args, "--node-id")   is { } id) opts.NodeId       = id;
         if (CommandContext.HasFlag(args, "--allow-anon")) opts.RequireAuth = false;
+        if (CommandContext.GetOption(args, "--nid-auth")  is { } na &&
+            Enum.TryParse<Banyan.Auth.NidAuthMode>(na, ignoreCase: true, out var mode)) opts.NidAuthMode = mode;
 
         // Repeatable --trusted-issuer NID=PUB
         for (int i = 0; i < args.Length - 1; i++)

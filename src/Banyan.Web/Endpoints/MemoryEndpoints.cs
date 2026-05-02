@@ -24,15 +24,18 @@ public static class MemoryEndpoints
     {
         var g = app.MapGroup("/api/memory").WithTags("memory");
 
-        g.MapPost("/", async (WriteBody body, SqliteMemoryStore store) =>
+        g.MapPost("/", async (HttpContext ctx, WriteBody body, SqliteMemoryStore store) =>
         {
             JsonDocument? meta = body.Metadata.HasValue
                 ? JsonDocument.Parse(body.Metadata.Value.GetRawText())
                 : null;
+            // Server-side NID (set by NidAuthenticationMiddleware) overrides any client-supplied
+            // agentNid string — clients can't spoof identity when auth is enabled.
+            var verifiedNid = ctx.Items[Banyan.Auth.NidAuthenticationOptions.ContextKeyNid] as string;
             var req = new WriteRequest(
                 Content:   body.Content,
                 Namespace: body.Namespace ?? "default",
-                AgentNid:  body.AgentNid,
+                AgentNid:  verifiedNid ?? body.AgentNid,
                 Metadata:  meta);
             var id = await store.WriteAsync(req);
             return Results.Ok(new WriteResponse(id.ToString()));
@@ -67,16 +70,17 @@ public static class MemoryEndpoints
                 meta, m.AgentNid, m.CreatedAt, m.UpdatedAt));
         });
 
-        g.MapPut("/{id}", async (string id, UpdateBody body, SqliteMemoryStore store) =>
+        g.MapPut("/{id}", async (HttpContext ctx, string id, UpdateBody body, SqliteMemoryStore store) =>
         {
             if (!Guid.TryParse(id, out var guid)) return Results.BadRequest(new { error = "invalid id" });
             JsonDocument? meta = body.Metadata.HasValue
                 ? JsonDocument.Parse(body.Metadata.Value.GetRawText())
                 : null;
+            var verifiedNid = ctx.Items[Banyan.Auth.NidAuthenticationOptions.ContextKeyNid] as string;
             try
             {
                 var ev = await store.UpdateAsync(new MemoryId(guid),
-                    new UpdateRequest(body.Content, meta, body.AgentNid));
+                    new UpdateRequest(body.Content, meta, verifiedNid ?? body.AgentNid));
                 return Results.Ok(new EventResponse(ev.ToString()));
             }
             catch (InvalidOperationException ex) { return Results.NotFound(new { error = ex.Message }); }

@@ -42,7 +42,7 @@ POST /api/memory  {content, namespace, agentNid?}
 |------|----------|------|
 | **HTTP REST** (`/api/memory/*`) — Banyan-spec, demo 友好 | 大多数 agent，任何语言，脚本。**默认**。 | 每轮一次 HTTP |
 | **NWP `QueryFrame`** (`POST /api/memory/query`) — NPS-3 wire | 跨语言 NPS 互操作，要 frame 级特性（anchor_ref、token 预算） | 同上 — 仅 body 不同 |
-| **NID 鉴权** (`Authorization: NID <base64(IdentFrame)>`) | 多租户生产、审计追溯、scope 校验（Pro 层） | agent 一次性发 NID + 每请求带 frame |
+| **NID 鉴权** (`Authorization: NID <base64(IdentFrame)>`) | 多租户生产、审计追溯、服务端身份。**Lite 已支持**，通过 `--nid-auth` 三档开关。 | agent 一次性发 NID + 每请求带 frame |
 | **进程内 .NET** (`SqliteMemoryStore` 直接用) | Agent 是 .NET 二进制，跟 Banyan 同进程 | 零（同进程） |
 
 普通 agent，HTTP REST 是合理起点。要 wire 上的 anchor 摘要 / token 预算时换 NWP；
@@ -150,8 +150,9 @@ all-MiniLM-L6-v2），用一组 ~50 条标注样本重新校准阈值。
 ```
 
 `agentNid` 标记"这条是哪个 agent 写的"，多 agent 共享 namespace 时关键。
-注意 Lite 层 `agentNid` 是自由字符串；**Pro 层** 它会变成 IdentFrame 校验后的
-真实身份。
+默认这个字段是自由字符串；一旦你打开 `--nid-auth writes-required`（或
+`all-required`），服务端会**用 `Authorization: NID` 头里校验过的 NID 覆盖**
+client 传的 `agentNid` —— client 没办法伪造身份。
 
 ### 更新 / 遗忘
 
@@ -209,24 +210,50 @@ def safe_recall(query: str, fallback: list[str] = None) -> list[str]:
 
 ---
 
-## 6. 升级到 NID 鉴权（Pro 层预览）
+## 6. 升级到 NID 鉴权
 
-当你超出 demo namespace、需要真审计时：
+当你超出 demo namespace、需要服务端审计时，把 Banyan 的 NID 鉴权打开，
+然后请求带 `Authorization: NID` 头。**这一档现在 Lite 就能用。**
+
+### 服务端：选模式
+
+`banyan web` 或 `banyan serve` 加 `--nid-auth MODE`：
+
+| 模式 | 行为 |
+|------|------|
+| `anonymous-allowed` *(默认)* | 不拦截。带头时校验并把 `HttpContext.Items["banyan.agent_nid"]` 盖上；缺头 / 无效头 → 匿名继续。 |
+| `writes-required` | `GET` 匿名放行。`POST` / `PUT` / `DELETE` / `PATCH` 必须带有效 frame，否则 `401 NIP-AUTH-REQUIRED`。 |
+| `all-required` | 所有 `/api/*` 和 `/v1/*` 都要带有效 frame。健康检查（`/api/health`）、清单（`/.nwm`、`/.schema`）、CA 发现（`/v1/ca/cert`、`/v1/crl`）保持公开。 |
 
 ```bash
-# 1. 给你的 agent 签发一个 NID
+# Lite，写需鉴权（最常见）：
+BANYAN_NIP_CA_PASSPHRASE=changeme \
+  banyan web --nid-auth writes-required
+```
+
+中间件除了走 `NipIdentVerifier` 校验签名 + 颁发链，**还会**对内嵌 CA 的吊销
+状态再确认一次 —— 所以 `banyan ca revoke <nid>` 立刻生效。
+
+### 客户端：构造头
+
+```bash
+# 1. 给 agent 签一个 NID（一次性）
 banyan agent issue --id claude-assistant --cap memory.read,memory.write \
   --remote http://banyan-host:5180 \
   --key-out ~/.config/claude/agent.key
 
-# 2. 运行时，从签发的 cert 构建 IdentFrame + 用 private key 签
+# 2. 运行时，用 private key 签 IdentFrame，再 base64
 # 3. 每次请求带上：
 curl -H "Authorization: NID $(base64 -w0 ident-frame.json)" \
   http://banyan-host:5180/api/memory/...
 ```
 
-`Banyan.Auth.RemoteNipCaClient` 是 .NET 侧签发 / 校验 NID 的 client。
-Frame 签名代码在 `NPS.NIP.Crypto.NipSigner`。
+.NET 里：`Banyan.Auth.NidAuthHeader.Build(frame)` 直接返回完整的
+`NID <base64>` 字符串，塞进 `Authorization` 即可。长寿命 client 用
+`NidAuthHeader.ApplyTo(httpClient, frame)` 一次性设到默认头。
+
+`Banyan.Auth.RemoteNipCaClient` 是远程 CA 的签发 / 校验 client，
+`NPS.NIP.Crypto.NipSigner` 负责帧签名。
 
 ---
 

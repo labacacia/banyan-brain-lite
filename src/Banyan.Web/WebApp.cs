@@ -3,6 +3,8 @@ using Banyan.Core;
 using Banyan.Embedders;
 using Banyan.Lite;
 using Banyan.Web.Endpoints;
+using Banyan.Web.Middleware;
+using NPS.NIP.Verification;
 
 namespace Banyan.Web;
 
@@ -54,12 +56,29 @@ public static class WebApp
                 };
                 var ca = await EmbeddedNipCa.OpenAsync(caOpts, ct);
                 builder.Services.AddSingleton(ca);
+                // Register the NIP verifier + the in-process CA as a trusted issuer.
+                // OcspUrl=null disables remote OCSP — the embedded CA is the source of truth and
+                // NidAuthenticationMiddleware consults it directly for revocation. An empty string
+                // here would crash HttpClient ("invalid request URI") on every verify.
+                builder.Services.AddSingleton(_ => new NipVerifierOptions
+                {
+                    TrustedIssuers      = new Dictionary<string, string> { [ca.CaNid] = ca.CaPubKey },
+                    LocalRevokedSerials = new HashSet<string>(),
+                    OcspUrl             = null!,
+                });
+                builder.Services.AddHttpClient();
+                builder.Services.AddSingleton<NipIdentVerifier>();
             }
         }
+        builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
 
         var app = builder.Build();
         app.UseDefaultFiles();
         app.UseStaticFiles();
+        // Mount NID auth only when there's a verifier (i.e. CA was loaded). Otherwise we have no
+        // trust anchors and the middleware would 401 every request.
+        if (app.Services.GetService<NipIdentVerifier>() is not null)
+            app.UseNidAuthentication();
 
         app.MapGet("/api/health", () => Results.Ok(new { ok = true, version = "P1.5-demo" }));
         MemoryEndpoints  .Map(app);
