@@ -25,6 +25,9 @@ public sealed class BanyanNodeOptions
     /// <summary>If true, NWP middleware accepts requests without IdentFrame (read-only).</summary>
     public bool    RequireAuth     { get; set; } = true;
 
+    /// <summary>How aggressively the Banyan NID middleware enforces IdentFrame on /api/* and /v1/* routes. Default: AnonymousAllowed.</summary>
+    public Banyan.Auth.NidAuthMode NidAuthMode { get; set; } = Banyan.Auth.NidAuthMode.AnonymousAllowed;
+
     public uint    DefaultLimit    { get; set; } = 20;
     public uint    MaxLimit        { get; set; } = 200;
     public uint    DefaultTokenBudget { get; set; } = 8192;

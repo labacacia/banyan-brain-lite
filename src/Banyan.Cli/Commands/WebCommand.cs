@@ -18,6 +18,8 @@ internal static class WebCommand
                   --ca-nid NID        CA NID (default: urn:nps:ca:local.banyan:root)
                   --no-ca             skip opening the CA (memory-only mode)
                   --vec-lib PATH      sqlite-vec loadable extension (default: env BANYAN_SQLITE_VEC_LIB or ~/.banyan/sqlite-vec/vec0.so)
+                  --nid-auth MODE     NID auth enforcement: AnonymousAllowed (default) | WritesRequired | AllRequired
+                                      Requires CA loaded (set BANYAN_NIP_CA_PASSPHRASE)
 
                 Auth:
                   Set BANYAN_NIP_CA_PASSPHRASE in the environment to unlock the CA on startup.
@@ -34,6 +36,8 @@ internal static class WebCommand
         if (CommandContext.GetOption(args, "--ca-nid")    is { } n) opts.CaNid        = n;
         if (CommandContext.GetOption(args, "--vec-lib")   is { } v) opts.SqliteVecLibPath = v;
         if (CommandContext.HasFlag(args, "--no-ca"))                opts.OpenCa       = false;
+        if (CommandContext.GetOption(args, "--nid-auth")  is { } na &&
+            Enum.TryParse<Banyan.Auth.NidAuthMode>(na, ignoreCase: true, out var mode)) opts.NidAuthMode = mode;
 
         await WebApp.RunAsync(opts, args);
         return 0;

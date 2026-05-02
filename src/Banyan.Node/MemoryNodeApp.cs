@@ -2,6 +2,7 @@ using Banyan.Auth;
 using Banyan.Core;
 using Banyan.Embedders;
 using Banyan.Lite;
+using Banyan.Web.Middleware;
 using NPS.NIP.Verification;
 using NPS.NWP.Extensions;
 using NPS.NWP.MemoryNode;
@@ -55,11 +56,13 @@ public static class MemoryNodeApp
         }
 
         // ── NIP verifier (used by NPS.NWP middleware for IdentFrame auth) ───
+        // OcspUrl=null disables remote OCSP — embedded CA (when present) is consulted directly
+        // by NidAuthenticationMiddleware; an empty string here would crash HttpClient on every verify.
         builder.Services.AddSingleton(_ => new NipVerifierOptions
         {
             TrustedIssuers      = opts.TrustedIssuers.ToDictionary(kv => kv.Key, kv => kv.Value),
             LocalRevokedSerials = new HashSet<string>(),
-            OcspUrl             = "",
+            OcspUrl             = null!,
         });
         builder.Services.AddSingleton<NipIdentVerifier>();
 
@@ -83,10 +86,16 @@ public static class MemoryNodeApp
             o.Schema             = BanyanMemoryProvider.BuildSchema();
         });
 
+        // ── NID auth (Lite default = AnonymousAllowed; opt-in WritesRequired/AllRequired) ────
+        builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
+
         // ── Build pipeline ────────────────────────────────────────────────────
         var app = builder.Build();
         app.UseDefaultFiles();
         app.UseStaticFiles();
+        // Same gate as Banyan.Web: NID middleware only meaningful when a verifier is in DI.
+        if (app.Services.GetService<NipIdentVerifier>() is not null)
+            app.UseNidAuthentication();
 
         // Liveness + manifest are publicly readable.
         app.MapGet("/api/health", () => Results.Ok(new { ok = true, role = "memory-node", version = "P3" }));

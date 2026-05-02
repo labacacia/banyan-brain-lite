@@ -32,6 +32,10 @@ and a parallel OIDC track for human operators on top of
     HTTP routes that the `NPS.NIP` NuGet hasn't shipped yet.
   - **Operators / Admins**: OIDC + JWT via OLS, with a SQLite-backed implementation
     of every Identity / OAuth store interface.
+- **Real NID authentication in Lite** — `Authorization: NID <base64(IdentFrame)>`
+  middleware with three modes (`anonymous-allowed` / `writes-required` /
+  `all-required`). Server-side verified NID overrides any client-supplied
+  `agentNid`; revocations from the embedded CA take effect immediately.
 - **Event-sourced memory** — every `Write/Update/Forget` appends to an immutable
   log; the latest snapshot lives in `memories_current`; trace stays auditable
   even after forget.
@@ -76,6 +80,11 @@ banyan web
 banyan serve --allow-anon
 # → POST /api/memory/query with QueryFrame body
 # → GET  /.nwm for the NeuralWebManifest
+
+# 5c. Turn on NID authentication (writes-required is the common production setting)
+banyan web   --nid-auth writes-required
+banyan serve --nid-auth writes-required
+# → POST/PUT/DELETE/PATCH need Authorization: NID <base64(IdentFrame)>; reads stay open
 
 # 6. From another host: issue / verify / revoke against a remote CA
 export BANYAN_CA_URL=https://your-ca-host:5180
@@ -125,7 +134,7 @@ src/
 tests/
 ├── Banyan.Core.Tests       (5)
 ├── Banyan.Lite.Tests       (42, incl. 6 ONNX + 5 sqlite-vec)
-├── Banyan.Auth.Tests       (27, incl. 7 RemoteNipCaClient round-trips)
+├── Banyan.Auth.Tests       (37, incl. 7 RemoteNipCaClient + 10 NID middleware)
 ├── Banyan.Identity.Tests   (43)
 └── Banyan.Node.Tests       (8)
 ```

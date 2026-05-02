@@ -17,6 +17,9 @@ public sealed class WebOptions
     /// <summary>Path to the sqlite-vec loadable extension. Null = auto-discover (env var / default cache).</summary>
     public string? SqliteVecLibPath { get; set; }
 
+    /// <summary>How aggressively to enforce IdentFrame auth on /api/* and /v1/* routes. Default: AnonymousAllowed (Lite demo).</summary>
+    public Banyan.Auth.NidAuthMode NidAuthMode { get; set; } = Banyan.Auth.NidAuthMode.AnonymousAllowed;
+
     public static string ExpandHome(string path)
     {
         if (string.IsNullOrEmpty(path) || path[0] != '~') return path;

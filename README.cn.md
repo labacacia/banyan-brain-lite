@@ -29,6 +29,9 @@ Banyan 是一个事件驱动的记忆存储 — agent 通过 `Remember()` / `Sea
     目前还没把 routing 实装好，由我们补齐。
   - **Operator / 管理员**：OLS 提供 OIDC + JWT，所有 Identity / OAuth store
     我们都用 SQLite 自实装。
+- **Lite 自带真 NID 鉴权** — `Authorization: NID <base64(IdentFrame)>` 中间件，
+  三档可选（`anonymous-allowed` / `writes-required` / `all-required`）。
+  服务端校验过的 NID 会直接覆盖请求体里的 `agentNid`；内嵌 CA 的吊销立刻生效。
 - **事件驱动记忆** — 每次 `Write/Update/Forget` 都追加到不可变日志；最新快照在
   `memories_current`；即使 forget 之后，trace 仍然可审计。
 - **标准合规的 Memory Node** — `banyan serve` 挂载
@@ -70,6 +73,11 @@ banyan web
 banyan serve --allow-anon
 # POST /api/memory/query 带 QueryFrame body
 # GET  /.nwm 看 NeuralWebManifest
+
+# 5c. 打开 NID 鉴权（writes-required 是常见生产档）
+banyan web   --nid-auth writes-required
+banyan serve --nid-auth writes-required
+# POST/PUT/DELETE/PATCH 都要带 Authorization: NID <base64(IdentFrame)>，读保持公开
 
 # 6. 在另一台主机：通过远端 CA issue / verify / revoke
 export BANYAN_CA_URL=https://your-ca-host:5180
@@ -117,7 +125,7 @@ src/
 tests/
 ├── Banyan.Core.Tests       (5)
 ├── Banyan.Lite.Tests       (42，含 6 个 ONNX + 5 个 sqlite-vec)
-├── Banyan.Auth.Tests       (27，含 7 个 RemoteNipCaClient round-trip)
+├── Banyan.Auth.Tests       (37，含 7 个 RemoteNipCaClient + 10 个 NID 中间件)
 ├── Banyan.Identity.Tests   (43)
 └── Banyan.Node.Tests       (8)
 ```

@@ -45,7 +45,7 @@ threshold, the right write trigger.
 |------|-------------|------|
 | **HTTP REST** (`/api/memory/*`) — Banyan-spec, demo-friendly | Most agents, any language, scripts. **Default**. | One HTTP call per turn |
 | **NWP `QueryFrame`** (`POST /api/memory/query`) — NPS-3 wire | Cross-language NPS interop, frame-level features (anchor_ref, token budget) | Same — different request body |
-| **NID-attested** (`Authorization: NID <base64(IdentFrame)>`) | Multi-tenant production, audit trails, scope enforcement (Pro tier) | One-time NID issuance per agent + per-request frame |
+| **NID-attested** (`Authorization: NID <base64(IdentFrame)>`) | Multi-tenant production, audit trails, server-side identity. **Available in Lite** via `--nid-auth` flag (3 modes). | One-time NID issuance per agent + per-request frame |
 | **In-process .NET** (`SqliteMemoryStore` direct) | Agent ships as a .NET binary alongside Banyan | None (same process) |
 
 For typical agents the HTTP REST path is the right starting point. Switch to
@@ -158,8 +158,10 @@ Skip:
 ```
 
 `agentNid` answers "which agent wrote this", important when multiple
-agents share a namespace. Note `agentNid` is currently a free-form string;
-in **Pro tier** it becomes a verified identity from the IdentFrame.
+agents share a namespace. By default the body field is a free-form string;
+once you turn on `--nid-auth writes-required` (or `all-required`) the server
+**overrides** any client-supplied `agentNid` with the verified NID from the
+`Authorization: NID` header — clients can no longer spoof identity.
 
 ### Update / forget
 
@@ -219,24 +221,53 @@ def safe_recall(query: str, fallback: list[str] = None) -> list[str]:
 
 ---
 
-## 6. Going to NID-attested (Pro tier preview)
+## 6. Going to NID-attested
 
-When you outgrow the demo namespace and need real audit:
+When you outgrow the demo namespace and need server-side audit, turn on
+NID auth on the Banyan instance and start sending an `Authorization: NID`
+header. **This now ships in the Lite tier.**
+
+### Server side: pick a mode
+
+Pass `--nid-auth MODE` to `banyan web` or `banyan serve`:
+
+| Mode | Behaviour |
+|------|-----------|
+| `anonymous-allowed` *(default)* | Never blocks. Verifies the header when present and stamps `HttpContext.Items["banyan.agent_nid"]`; missing / invalid header → request continues anonymously. |
+| `writes-required` | `GET` stays anonymous. `POST` / `PUT` / `DELETE` / `PATCH` must carry a valid frame, otherwise `401 NIP-AUTH-REQUIRED`. |
+| `all-required` | Every `/api/*` and `/v1/*` request needs a valid frame. Health (`/api/health`), manifest (`/.nwm`, `/.schema`), and CA discovery (`/v1/ca/cert`, `/v1/crl`) stay public. |
 
 ```bash
-# 1. Issue an NID for your agent
+# Lite, writes-only (most common):
+BANYAN_NIP_CA_PASSPHRASE=changeme \
+  banyan web --nid-auth writes-required
+```
+
+The middleware verifies signature + issuer chain via the upstream
+`NipIdentVerifier`, **and** double-checks the embedded CA's revocation state
+on every request — so `banyan ca revoke <nid>` takes effect immediately.
+
+### Client side: build the header
+
+```bash
+# 1. Issue an NID for your agent (one-time)
 banyan agent issue --id claude-assistant --cap memory.read,memory.write \
   --remote http://banyan-host:5180 \
   --key-out ~/.config/claude/agent.key
 
-# 2. At runtime, build an IdentFrame from the issued cert + sign with the key,
+# 2. At runtime, sign an IdentFrame with the key and base64 the JSON.
 # 3. Attach to every request:
 curl -H "Authorization: NID $(base64 -w0 ident-frame.json)" \
   http://banyan-host:5180/api/memory/...
 ```
 
-`Banyan.Auth.RemoteNipCaClient` is the .NET-side client for issuing /
-verifying NIDs. The frame-signing code is in `NPS.NIP.Crypto.NipSigner`.
+In .NET: `Banyan.Auth.NidAuthHeader.Build(frame)` returns the full
+`NID <base64>` string ready to slot into `Authorization`. For a long-lived
+client, `NidAuthHeader.ApplyTo(httpClient, frame)` sets the default header
+once.
+
+`Banyan.Auth.RemoteNipCaClient` issues / verifies NIDs against a remote CA;
+`NPS.NIP.Crypto.NipSigner` does the frame signing.
 
 ---
 
