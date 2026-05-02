@@ -47,9 +47,12 @@ and a parallel OIDC track for human operators on top of
 - **Web UI** — neon-glass, particle-network background, three-tab SPA
   (Memory · Agents · About). Requires login when identity is configured; anonymous
   memory reads/writes remain available via the API without a session.
+- **MCP Server** — `banyan mcp` runs as a Model Context Protocol stdio server,
+  giving Claude Desktop and Claude Code four first-class memory tools (`recall`,
+  `remember`, `update`, `forget`) with zero system-prompt boilerplate.
 - **Single-binary CLI** — `dotnet tool install -g Banyan.Cli` ships the entire
   surface (`keygen`, `init`, `login`, `ca init`, `agent issue/verify/revoke`,
-  `embedder download`, `web`, `serve`).
+  `embedder download`, `mcp`, `web`, `serve`).
 
 ## Quick Start
 
@@ -152,7 +155,8 @@ tests/
 
 | Document | Description |
 |---|---|
-| [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | **Recipe**: connecting an agent (Claude / GPT / custom) to Banyan as persistent memory |
+| [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | **Recipe**: Claude Desktop / Claude Code MCP integration — `banyan mcp` quick start, tool reference, system prompt |
+| [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | **Recipe**: connecting an agent (Claude / GPT / custom) to Banyan via HTTP |
 | [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix — NPS compliance + topology, scope of this repo |
 | [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | Memory / identity / CA SQLite schemas, event log, FTS5, vector layout |
 | [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 (NCP / NWP / NIP) — what we consume, what we fill in |

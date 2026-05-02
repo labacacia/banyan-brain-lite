@@ -39,9 +39,12 @@ Banyan 是一个事件驱动的记忆存储 — agent 通过 `Remember()` / `Sea
   `/.schema`、`POST /api/memory/query`（带 `anchor_ref`、`token_est` 的 NWP 帧）。
 - **Web UI** — 霓虹玻璃 + 粒子网格背景，三 tab SPA（Memory · Agents · About）。
   配置了身份后强制登录；匿名记忆读写通过 API 仍可用。
+- **MCP Server** — `banyan mcp` 作为 Model Context Protocol stdio 服务器运行，
+  给 Claude Desktop 和 Claude Code 提供四个一等公民记忆工具（`recall` / `remember` /
+  `update` / `forget`），无需在 system prompt 里堆 API 文档。
 - **单二进制 CLI** — `dotnet tool install -g Banyan.Cli` 一键拿全功能
   （`keygen` / `init` / `login` / `ca init` / `agent issue/verify/revoke` /
-  `embedder download` / `web` / `serve`）。
+  `embedder download` / `mcp` / `web` / `serve`）。
 
 ## 快速开始
 
@@ -142,7 +145,8 @@ tests/
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | **Recipe**：把 agent（Claude / GPT / 自研）接到 Banyan 当持久记忆 |
+| [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | **Recipe**：Claude Desktop / Claude Code MCP 接入 — `banyan mcp` 快速开始、工具参考、System Prompt |
+| [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | **Recipe**：通过 HTTP 把 agent（Claude / GPT / 自研）接到 Banyan |
 | [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite · Pro · Ent 三层范围矩阵 — NPS 合规 + 拓扑、本仓库范围 |
 | [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | 记忆 / 身份 / CA 的 SQLite 表结构、事件日志、FTS5、向量布局 |
 | [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 与 NPS-3（NCP / NWP / NIP）映射 — 我们消费什么、补齐什么 |

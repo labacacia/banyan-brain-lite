@@ -19,5 +19,8 @@
     <ProjectReference Include="../Banyan.Node/Banyan.Node.csproj" />
     <ProjectReference Include="../Banyan.Web/Banyan.Web.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
+  </ItemGroup>
   <!-- System.CommandLine added in P3 -->
 </Project>

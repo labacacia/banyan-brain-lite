@@ -19,6 +19,7 @@ return command switch
     "ca"     => await CaCommand.RunAsync(rest),
     "agent"  => await AgentCommand.RunAsync(rest),
     "web"    => await WebCommand.RunAsync(rest),
+    "mcp"    => await McpCommand.RunAsync(rest),
     "embedder" => await EmbedderCommand.RunAsync(rest),
     "serve"    => await ServeCommand.RunAsync(rest),
     _        => Unknown(command),
@@ -64,6 +65,12 @@ static void PrintHelp()
         Embedder (P2.1):
           embedder download  Pull multilingual-e5-small ONNX + SentencePiece (~123 MB)
           embedder info      Show paths / sizes / load status
+
+        MCP:
+          mcp       Run as an MCP stdio server (Claude Desktop / Claude Code integration)
+                      --db PATH          (default: ~/.banyan/memory.db)
+                      --namespace NS     default write namespace (default: default)
+                      --sqlite-vec PATH  sqlite-vec extension path
 
         Demo:
           web       Start the demo web UI (default: http://localhost:5180)
