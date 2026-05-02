@@ -103,6 +103,7 @@ tests/
 
 | 文档 | 内容 |
 |---|---|
+| [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite · Pro · Ent 三层范围矩阵 — NPS 合规 + 拓扑、本仓库范围 |
 | [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | 记忆 / 身份 / CA 的 SQLite 表结构、事件日志、FTS5、向量布局 |
 | [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 与 NPS-3（NCP / NWP / NIP）映射 — 我们消费什么、补齐什么 |
 | [`docs/architecture/identity.cn.md`](./docs/architecture/identity.cn.md) | 双轨身份模型：机器走 NID，人走 OLS / OIDC |

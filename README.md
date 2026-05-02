@@ -109,6 +109,7 @@ tests/
 
 | Document | Description |
 |---|---|
+| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix — NPS compliance + topology, scope of this repo |
 | [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | Memory / identity / CA SQLite schemas, event log, FTS5, vector layout |
 | [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 (NCP / NWP / NIP) — what we consume, what we fill in |
 | [`docs/architecture/identity.md`](./docs/architecture/identity.md) | Dual-track identity model: NID for machines, OLS / OIDC for humans |
