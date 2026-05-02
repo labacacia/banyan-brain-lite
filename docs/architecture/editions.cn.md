@@ -93,6 +93,11 @@ Ent 是 **Agentic-as-a-Service Level 3**。Pro 的全部 + 还要：
    `MemoryNodeOptions.Schema` 查询（过滤 `namespace` 列）
 3. 加 `NPS.NWP.ActionNode` 中间件做租户 onboarding 动作
 4. demo / Web UI 从"单组织"切到"租户选择器"
+5. 加**共享记忆池** — 设计见 [ADR-001](./adr-001-memory-pools.cn.md)（NID-ACL
+   容器、系统池 0、跨池 merge 搜索）
+
+完整 Pro 阶段计划（含成本估算 + 依赖图）：
+[`pro-roadmap.cn.md`](./pro-roadmap.cn.md)。
 
 Ent 在 Pro 之上再加：
 
