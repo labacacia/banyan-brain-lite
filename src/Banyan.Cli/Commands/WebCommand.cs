@@ -19,11 +19,17 @@ internal static class WebCommand
                   --no-ca             skip opening the CA (memory-only mode)
                   --vec-lib PATH      sqlite-vec loadable extension (default: env BANYAN_SQLITE_VEC_LIB or ~/.banyan/sqlite-vec/vec0.so)
                   --nid-auth MODE     NID auth enforcement: AnonymousAllowed (default) | WritesRequired | AllRequired
-                                      Requires CA loaded (set BANYAN_NIP_CA_PASSPHRASE)
+                                      Requires CA loaded or --trusted-issuer configured
+                  --trusted-issuer NID=PUBKEY
+                                      Trust an external CA. Repeat for multiple CAs.
+                                      PUBKEY format: ed25519:<base64>
+                                      Example: --trusted-issuer urn:nps:ca:foo:root=ed25519:ABC...
+                  --ocsp-url URL      OCSP endpoint of the external CA for revocation checks
 
                 Auth:
-                  Set BANYAN_NIP_CA_PASSPHRASE in the environment to unlock the CA on startup.
-                  Without it, /api/agents and /api/ca return 404 but /api/memory still works.
+                  Embedded CA: set BANYAN_NIP_CA_PASSPHRASE to unlock CA on startup.
+                  External CA: use --trusted-issuer (no passphrase needed). --no-ca implied.
+                  Without either, NID auth is disabled and /api/memory stays open.
                 """);
             return 0;
         }
@@ -38,6 +44,15 @@ internal static class WebCommand
         if (CommandContext.HasFlag(args, "--no-ca"))                opts.OpenCa       = false;
         if (CommandContext.GetOption(args, "--nid-auth")  is { } na &&
             Enum.TryParse<Banyan.Auth.NidAuthMode>(na, ignoreCase: true, out var mode)) opts.NidAuthMode = mode;
+        if (CommandContext.GetOption(args, "--ocsp-url")  is { } ou) opts.ExternalOcspUrl = ou;
+
+        // --trusted-issuer may repeat; each value is NID=PUBKEY
+        foreach (var ti in CommandContext.GetOptions(args, "--trusted-issuer"))
+        {
+            var eq = ti.IndexOf('=');
+            if (eq > 0) opts.TrustedIssuers[ti[..eq].Trim()] = ti[(eq + 1)..].Trim();
+            else Console.Error.WriteLine($"[warn] --trusted-issuer ignored (expected NID=PUBKEY): {ti}");
+        }
 
         await WebApp.RunAsync(opts, args);
         return 0;

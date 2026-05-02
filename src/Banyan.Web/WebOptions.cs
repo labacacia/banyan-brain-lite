@@ -30,6 +30,19 @@ public sealed class WebOptions
     /// <summary>How aggressively to enforce IdentFrame auth on /api/* and /v1/* routes. Default: AnonymousAllowed (Lite demo).</summary>
     public Banyan.Auth.NidAuthMode NidAuthMode { get; set; } = Banyan.Auth.NidAuthMode.AnonymousAllowed;
 
+    /// <summary>
+    /// External CA trust anchors when running without the embedded CA (--no-ca).
+    /// Keys are CA NIDs; values are Ed25519 public keys in "ed25519:&lt;base64&gt;" form.
+    /// Populated by repeated --trusted-issuer NID=PUBKEY flags on the CLI.
+    /// </summary>
+    public Dictionary<string, string> TrustedIssuers { get; set; } = new();
+
+    /// <summary>
+    /// OCSP endpoint of an external CA for online revocation checks.
+    /// Null (default) disables OCSP — revocation is not checked.
+    /// </summary>
+    public string? ExternalOcspUrl { get; set; }
+
     public static string ExpandHome(string path)
     {
         if (string.IsNullOrEmpty(path) || path[0] != '~') return path;
