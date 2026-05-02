@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Core</AssemblyName>
+    <RootNamespace>Banyan.Core</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Core</PackageId>
+    <Description>Banyan domain types — memory store / embedder interfaces, request/response records, NID-aware identifiers. Zero infrastructure dependencies; consumed by every Banyan.* package.</Description>
+  </PropertyGroup>
+</Project>
