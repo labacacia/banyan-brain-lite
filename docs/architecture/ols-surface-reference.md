@@ -84,10 +84,3 @@ LastPolledAt, Interval, CreatedAt, ExpiresAt, IsExpired (computed)`
 | `services.AddOlsAuthorisation(o => …)` | RBAC + dynamic policy provider |
 | `services.AddOlsOidc(o => …)` | OIDC server pipeline (token/authorize/discovery) |
 | `endpoints.MapOlsOidcEndpoints()` | Routes `/connect/token`, `/connect/authorize`, `/.well-known/openid-configuration`, etc. |
-
-## Open design decisions (fed into Banyan.Identity)
-
-1. **DB**: own SQLite file (`identity.db`) vs. share `banyan.db` with memory store.
-2. **Operator login flow**: Device Code (best for CLI), Resource Owner Password (simplest), or Auth Code + PKCE with browser launch.
-3. **JWT signing key lifecycle**: where is the RSA key persisted, who provisions it (`banyan keygen`?), rotation strategy.
-4. **Client seeding**: `banyan` CLI itself is one OIDC client (public, PKCE) — preregister it on first init.

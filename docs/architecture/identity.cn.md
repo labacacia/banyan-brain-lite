@@ -182,7 +182,7 @@ CREATE TABLE ols_reference_tokens (
 }
 ```
 
-## CLI 命令（Banyan.Cli 表面 — store 跑通后再实现）
+## CLI 命令
 
 | 命令 | 用途 |
 |---|---|
@@ -193,7 +193,7 @@ CREATE TABLE ols_reference_tokens (
 | `banyan whoami` | 显示当前 access token 的 subject + scopes |
 | `banyan logout` | 调 `/connect/revocation` 撤销 refresh token，清缓存 |
 
-## Web UI 登录流（P1.5，已实现）
+## Web UI 登录流
 
 `Banyan.Web` 在 OLS 之上完整对接了浏览器 session 路径：
 
