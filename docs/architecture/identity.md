@@ -182,7 +182,7 @@ CREATE TABLE ols_reference_tokens (
 }
 ```
 
-## CLI commands (Banyan.Cli surface — implement after stores are green)
+## CLI commands
 
 | Command | Purpose |
 |---|---|
@@ -193,7 +193,7 @@ CREATE TABLE ols_reference_tokens (
 | `banyan whoami` | Show subject + scopes from cached access token. |
 | `banyan logout` | Revoke refresh token at `/connect/revocation`, clear cache. |
 
-## Web UI login flow (P1.5, implemented)
+## Web UI login flow
 
 `Banyan.Web` wires the full browser-session path on top of OLS:
 

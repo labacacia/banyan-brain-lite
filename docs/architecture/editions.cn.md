@@ -27,7 +27,7 @@ Banyan 分三层 ship，按 NPS 合规级别和部署拓扑划分。每层是独
 - L0 anonymous：`banyan serve --allow-anon`
 - L1 attested 也支持（默认 — NWP 中间件 `RequireAuth=true`），但 Mini-CA 是
   唯一信任根，attest 是单租户的
-- Demo Web UI：`banyan web`
+- Web UI：`banyan web` — 配置了身份后强制跳转登录页
 
 Lite **包含**的 NPS 协议特性：
 
@@ -38,15 +38,16 @@ Lite **包含**的 NPS 协议特性：
 - ✅ `NptMeter` token 估算（`token_est` header + body 字段）
 - ✅ NIP Mini-CA：`EmbeddedNipCa` + `SqliteNipCaStore` + NPS-3 §8 标准
       HTTP 路由（`/v1/agents/...`、`/v1/ca/cert`、`/.well-known/nps-ca`）
-- ✅ `RemoteNipCaClient` — Lite 也能作为 client 用（Lite agent 可以接到远端
-      `nip-ca-server` 共享信任根，虽然 Lite 自己不跑一个）
+- ✅ `RemoteNipCaClient` — 任何 Lite 节点都能作为客户端连远端 CA；
+      结合 `--trusted-issuer` / `--ocsp-url`，Lite 无需自己运行 nip-ca-server
+      就能验证外部 CA 签发的证书
 
 Lite **不包含**的（属于 Pro / Ent）：
 
-- ❌ 外置 `nip-ca-server` 部署（Pro）
-- ❌ 每请求按 NID-scope 多租户隔离（Pro）
-- ❌ L2 verified — Anchor Node 入口、NOP 编排、K-of-N 仲裁（Ent）
-- ❌ Bridge Node legacy 协议适配（Ent）
+- ❌ 运行独立的 `nip-ca-server`（Docker + Postgres 版 CA）— 属于 Pro
+- ❌ 每请求按 NID-scope 多租户隔离 — Pro
+- ❌ L2 verified — Anchor Node 入口、NOP 编排、K-of-N 仲裁 — Ent
+- ❌ Bridge Node legacy 协议适配 — Ent
 - ❌ `NPS.NWP.ActionNode` / `ComplexNode`（我们只跑 MemoryNode）
 - ❌ NPS-RFC-0002 v2 X.509 双信任 register（`/v2/agents/register`）
 
@@ -54,8 +55,8 @@ Lite **不包含**的（属于 Pro / Ent）：
 
 | 关注点 | Lite | Pro |
 |--------|------|-----|
-| NIP CA | `EmbeddedNipCa` 同进程 | 外置 `nip-ca-server`（Docker，Postgres） |
-| 信任根 | 单个自签 Ed25519 keypair | `TrustedIssuers` 里多个远端 CA |
+| NIP CA | `EmbeddedNipCa` 同进程；可通过 `--trusted-issuer` / `--ocsp-url` 验证外部 CA 证书 | 运行独立 `nip-ca-server`（Docker，Postgres） |
+| 信任根 | 自签 Ed25519 keypair（内置），或信任的外部 CA 公钥 | `TrustedIssuers` 里多个远端 CA，每个 IdentFrame 都强校验 |
 | 租户   | 单 `default` namespace | 每租户独立 namespace + 每个 IdentFrame 都校验 scope |
 | Assurance | L0 anon（opt-in）或 L1 attested（默认） | L1 attested 强制；scope check 必校 |
 | Memory Node 数量 | 1 | N（每个一个租户切片） |

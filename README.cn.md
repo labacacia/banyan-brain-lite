@@ -24,21 +24,21 @@ Banyan 是一个事件驱动的记忆存储 — agent 通过 `Remember()` / `Sea
 - **真语义 embedding** — `IEmbedder` 可插拔；默认 `bge-small-zh-v1.5`（多语言、
   22 MB INT8 ONNX、384 维）；离线降级是 hashing n-gram。
 - **双轨身份模型**
-  - **Agent / Memory Node**：Ed25519 NID 证书，本地 `NipCaService` 或远程 NPS-CA
+  - **Agent / Memory Node**：Ed25519 NID 证书，本地 `NipCaService` 或远程 nip-ca-server
     都能签。Banyan 提供 NPS-3 §8 标准的 HTTP 路由 — 因为 `NPS.NIP` 这个 NuGet
     目前还没把 routing 实装好，由我们补齐。
   - **Operator / 管理员**：OLS 提供 OIDC + JWT，所有 Identity / OAuth store
-    我们都用 SQLite 自实装。
+    我们都用 SQLite 自实装。配置了身份后，Web UI 会强制跳转登录页。
 - **Lite 自带真 NID 鉴权** — `Authorization: NID <base64(IdentFrame)>` 中间件，
   三档可选（`anonymous-allowed` / `writes-required` / `all-required`）。
-  服务端校验过的 NID 会直接覆盖请求体里的 `agentNid`；内嵌 CA 的吊销立刻生效。
+  服务端校验过的 NID 会直接覆盖请求体里的 `agentNid`；CA 的吊销立刻生效。
 - **事件驱动记忆** — 每次 `Write/Update/Forget` 都追加到不可变日志；最新快照在
   `memories_current`；即使 forget 之后，trace 仍然可审计。
 - **标准合规的 Memory Node** — `banyan serve` 挂载
   `app.UseMemoryNode<TProvider>`，暴露 `/.nwm`（`NeuralWebManifest`）、
   `/.schema`、`POST /api/memory/query`（带 `anchor_ref`、`token_est` 的 NWP 帧）。
-- **Demo Web UI** — 霓虹玻璃 + 粒子网格背景，三 tab SPA（Memory · Agents · About）；
-  搜索框直接切换 BM25 / Vector / Hybrid，中英双语语义命中。
+- **Web UI** — 霓虹玻璃 + 粒子网格背景，三 tab SPA（Memory · Agents · About）。
+  配置了身份后强制登录；匿名记忆读写通过 API 仍可用。
 - **单二进制 CLI** — `dotnet tool install -g Banyan.Cli` 一键拿全功能
   （`keygen` / `init` / `login` / `ca init` / `agent issue/verify/revoke` /
   `embedder download` / `web` / `serve`）。
@@ -52,42 +52,42 @@ dotnet tool install -g Banyan.Cli
 # 1. 拉 embedder 模型 + sqlite-vec 扩展（约 24 MB）
 banyan embedder download
 
-# 2. 初始化人机身份库（交互式建 admin）
+# 2. 初始化人机身份（创建 admin 账号和 JWT 签名密钥）
 banyan keygen
 banyan init
 
-# 3. 初始化 NID CA
+# 3. 初始化 NID CA（如果接外部 CA Server 则跳过）
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
 banyan ca init
 
-# 4. 本地签发一个 agent NID
+# 4. 签发一个 agent 证书
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 5a. 试 Web UI demo（Memory / Agents / About 三个面板）
+# 5. 启动 Web UI
 export BANYAN_EMBEDDER=onnx
 banyan web
 # 浏览器打开 http://localhost:5180
-# → 配置了身份（步骤 2）时，界面会自动跳转到 /login.html
-# → 用管理员账号登录后显示完整管理功能（agent 管理、CA 操作）
-# → 跳过步骤 2 时，身份相关页面会跳转，匿名记忆读写 API 仍然正常工作
+# → 配置了身份（步骤 2）时自动跳转到 /login.html
+# → 用管理员账号登录后可管理 agent 和 CA
+# → 跳过步骤 2 时，匿名记忆读写通过 API 仍然可用
 
-# 5a-alt. 连接外部 NIP CA（而不是内嵌 CA）
+# 如需接外部 nip-ca-server 而不用内置 CA：
 banyan web --no-ca \
-  --trusted-issuer "urn:nps:ca:your-ca-nid=ed25519:your-ca-pubkey" \
+  --trusted-issuer "urn:nps:ca:<ca-nid>=ed25519:<ca-pubkey>" \
   --ocsp-url http://your-ca-host:17435/ocsp
 
-# 5b. 或起一个真 Memory Node（NWP wire）
-banyan serve --allow-anon
-# POST /api/memory/query 带 QueryFrame body
-# GET  /.nwm 看 NeuralWebManifest
-
-# 5c. 打开 NID 鉴权（writes-required 是常见生产档）
+# 6. 打开 NID 鉴权（writes-required 是常见生产档）
 banyan web   --nid-auth writes-required
 banyan serve --nid-auth writes-required
 # POST/PUT/DELETE/PATCH 都要带 Authorization: NID <base64(IdentFrame)>，读保持公开
 
-# 6. 在另一台主机：通过远端 CA issue / verify / revoke
+# 7. 或者起一个纯 NWP Memory Node（无 Web UI）
+banyan serve --allow-anon
+# POST /api/memory/query 带 QueryFrame body
+# GET  /.nwm 看 NeuralWebManifest
+
+# 8. 在另一台主机：通过远端 CA issue / verify / revoke
 export BANYAN_CA_URL=https://your-ca-host:5180
 banyan agent issue --id offsite-agent --cap memory.read --remote $BANYAN_CA_URL
 banyan agent verify urn:nps:agent:.../offsite-agent --remote $BANYAN_CA_URL
@@ -125,8 +125,8 @@ src/
 ├── Banyan.Embedders    # HashingEmbedder、OnnxEmbedder、EmbedderFactory
 ├── Banyan.Auth         # NID CA：EmbeddedNipCa / SqliteNipCaStore / RemoteNipCaClient
 ├── Banyan.Identity     # OLS 驱动的人机身份（OIDC、JWT、RBAC），存 SQLite
-├── Banyan.Web          # ASP.NET Core demo UI + agents/memory/identity REST，
-│                         以及 NPS-3 §8 NIP CA HTTP 路由（.NET 侧补缺）
+├── Banyan.Web          # ASP.NET Core Web UI + agents/memory/identity REST，
+│                         以及 NPS-3 §8 NIP CA HTTP 路由（补 NuGet 缺口）
 ├── Banyan.Node         # banyan serve — 挂 NPS.NWP MemoryNodeMiddleware
 └── Banyan.Cli          # banyan dotnet tool
 
@@ -152,7 +152,7 @@ tests/
 ## 站在巨人肩膀上
 
 - [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/nps) — Neural Web Protocol 栈
-- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — NIP CA HTTP API 参考实装
+- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — NIP CA Server（Docker + Postgres）
 - [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn/ols-root) — 人机身份栈
 - [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + [Microsoft.ML.Tokenizers](https://www.nuget.org/packages/Microsoft.ML.Tokenizers) — ONNX 推理 + BERT WordPiece
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — 多语言句子向量

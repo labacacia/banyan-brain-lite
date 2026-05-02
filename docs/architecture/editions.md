@@ -30,7 +30,7 @@ implements the **Lite** tier. Pro and Ent live in
 - L1 attested (the default — `RequireAuth=true` on the NWP middleware) is
   available too, but the Mini-CA is the only trust root, so it's
   effectively single-tenant attestation
-- Demo web UI at `banyan web`
+- Web UI at `banyan web` — enforces login when identity is configured
 
 NPS-protocol features Lite **does** ship:
 
@@ -41,16 +41,16 @@ NPS-protocol features Lite **does** ship:
 - ✅ `NptMeter` token estimation (`token_est` header + body field)
 - ✅ NIP Mini-CA: `EmbeddedNipCa` + `SqliteNipCaStore` + NPS-3 §8 conformant
       HTTP routes (`/v1/agents/...`, `/v1/ca/cert`, `/.well-known/nps-ca`)
-- ✅ `RemoteNipCaClient` — usable as a client even in Lite (so a Lite agent
-      *can* be pointed at a remote `nip-ca-server` if you want to share trust
-      roots, even though Lite doesn't run one itself)
+- ✅ `RemoteNipCaClient` — lets any Lite node act as a client to a remote CA;
+      combined with `--trusted-issuer` / `--ocsp-url`, Lite can verify certificates
+      from an external nip-ca-server without running one itself
 
 NPS-protocol features Lite **doesn't** ship (these are Pro / Ent territory):
 
-- ❌ External `nip-ca-server` deployment (Pro)
-- ❌ Multi-tenant NID-scope isolation per request (Pro)
-- ❌ L2 verified — Anchor Node ingress, NOP orchestration, K-of-N quorum (Ent)
-- ❌ Bridge Node legacy protocol adapters (Ent)
+- ❌ Running a standalone `nip-ca-server` (Docker + Postgres-backed CA) — Pro
+- ❌ Multi-tenant NID-scope isolation per request — Pro
+- ❌ L2 verified — Anchor Node ingress, NOP orchestration, K-of-N quorum — Ent
+- ❌ Bridge Node legacy protocol adapters — Ent
 - ❌ `NPS.NWP.ActionNode` / `ComplexNode` (we only host MemoryNode)
 - ❌ NPS-RFC-0002 v2 X.509 dual-trust register (`/v2/agents/register`)
 
@@ -58,8 +58,8 @@ NPS-protocol features Lite **doesn't** ship (these are Pro / Ent territory):
 
 | Concern | Lite | Pro |
 |---------|------|-----|
-| NIP CA | `EmbeddedNipCa` in-process | External `nip-ca-server` (Docker, Postgres-backed) |
-| Trust root | One self-signed Ed25519 keypair | One or more remote CAs in `TrustedIssuers` |
+| NIP CA | `EmbeddedNipCa` in-process; can connect to an external CA for verification via `--trusted-issuer` / `--ocsp-url` | Runs an external `nip-ca-server` (Docker, Postgres-backed) |
+| Trust root | Self-signed Ed25519 keypair (embedded); or a trusted external CA's pubkey | One or more remote CAs in `TrustedIssuers`, enforced on every IdentFrame |
 | Tenancy | Single `default` namespace | Per-tenant namespace + scope check on every IdentFrame |
 | Assurance | L0 anon (opt-in) or L1 attested (default) | L1 attested mandatory; scope check enforced |
 | Memory Node count | 1 | N (each holds a tenant's slice) |

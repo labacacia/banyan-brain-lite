@@ -28,14 +28,15 @@ and a parallel OIDC track for human operators on top of
   hashing fallback.
 - **Dual-track identity**
   - **Agents / Memory Nodes**: Ed25519 NID certificates issued by an embedded
-    `NipCaService` or a remote NPS-CA. Banyan ships the NPS-3 §8 conformant
+    `NipCaService` or a remote nip-ca-server. Banyan ships the NPS-3 §8 conformant
     HTTP routes that the `NPS.NIP` NuGet hasn't shipped yet.
   - **Operators / Admins**: OIDC + JWT via OLS, with a SQLite-backed implementation
-    of every Identity / OAuth store interface.
+    of every Identity / OAuth store interface. The web UI enforces login via redirect
+    when identity is configured.
 - **Real NID authentication in Lite** — `Authorization: NID <base64(IdentFrame)>`
   middleware with three modes (`anonymous-allowed` / `writes-required` /
   `all-required`). Server-side verified NID overrides any client-supplied
-  `agentNid`; revocations from the embedded CA take effect immediately.
+  `agentNid`; revocations from the CA take effect immediately.
 - **Event-sourced memory** — every `Write/Update/Forget` appends to an immutable
   log; the latest snapshot lives in `memories_current`; trace stays auditable
   even after forget.
@@ -43,9 +44,9 @@ and a parallel OIDC track for human operators on top of
   `app.UseMemoryNode<TProvider>`, exposes `/.nwm` (`NeuralWebManifest`),
   `/.schema`, `POST /api/memory/query` (NWP frames with `anchor_ref`,
   `token_est`, etc.).
-- **Demo Web UI** — neon-glass, particle-network background, three-tab SPA
-  (Memory · Agents · About) with live BM25 / Vector / Hybrid mode toggle and
-  semantic search across English + 中文 corpora.
+- **Web UI** — neon-glass, particle-network background, three-tab SPA
+  (Memory · Agents · About). Requires login when identity is configured; anonymous
+  memory reads/writes remain available via the API without a session.
 - **Single-binary CLI** — `dotnet tool install -g Banyan.Cli` ships the entire
   surface (`keygen`, `init`, `login`, `ca init`, `agent issue/verify/revoke`,
   `embedder download`, `web`, `serve`).
@@ -59,43 +60,42 @@ dotnet tool install -g Banyan.Cli
 # 1. Pull the embedder model + sqlite-vec extension (~24 MB)
 banyan embedder download
 
-# 2. Bootstrap the human-side identity DB (interactive admin user)
+# 2. Bootstrap human-side identity (creates admin account and JWT signing key)
 banyan keygen
 banyan init
 
-# 3. Bootstrap the agent-side NID CA
+# 3. Bootstrap the NID CA (skip if using an external CA server)
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
 banyan ca init
 
-# 4. Issue an agent NID locally
+# 4. Issue an agent certificate
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 5a. Try the demo web UI (memory + agent + CA panels)
+# 5. Start the web UI
 export BANYAN_EMBEDDER=onnx
 banyan web
 # → open http://localhost:5180
-# → the web UI redirects to /login.html when identity is configured (step 2)
+# → redirects to /login.html when identity is configured (step 2)
 # → sign in with the admin account to access agent management and CA ops
-# → if identity is not configured (step 2 skipped), identity-gated pages redirect
-#   but anonymous memory reads/writes still work via the API
+# → without step 2, memory reads/writes work anonymously via the API
 
-# 5a-alt. Connect to an external NIP CA server instead of the embedded one
+# To connect to an external nip-ca-server instead of the embedded one:
 banyan web --no-ca \
-  --trusted-issuer "urn:nps:ca:your-ca-nid=ed25519:your-ca-pubkey" \
+  --trusted-issuer "urn:nps:ca:<ca-nid>=ed25519:<ca-pubkey>" \
   --ocsp-url http://your-ca-host:17435/ocsp
 
-# 5b. Or run a real Memory Node listening on NWP
+# 6. Enable NID authentication (writes-required is the common production setting)
+banyan web   --nid-auth writes-required
+banyan serve --nid-auth writes-required
+# POST/PUT/DELETE/PATCH require Authorization: NID <base64(IdentFrame)>; reads stay open
+
+# 7. Or run as a pure NWP Memory Node (no web UI)
 banyan serve --allow-anon
 # → POST /api/memory/query with QueryFrame body
 # → GET  /.nwm for the NeuralWebManifest
 
-# 5c. Turn on NID authentication (writes-required is the common production setting)
-banyan web   --nid-auth writes-required
-banyan serve --nid-auth writes-required
-# → POST/PUT/DELETE/PATCH need Authorization: NID <base64(IdentFrame)>; reads stay open
-
-# 6. From another host: issue / verify / revoke against a remote CA
+# 8. Remote CA: issue / verify / revoke from another host
 export BANYAN_CA_URL=https://your-ca-host:5180
 banyan agent issue --id offsite-agent --cap memory.read --remote $BANYAN_CA_URL
 banyan agent verify urn:nps:agent:.../offsite-agent --remote $BANYAN_CA_URL
@@ -135,8 +135,8 @@ src/
 ├── Banyan.Embedders    # HashingEmbedder, OnnxEmbedder, EmbedderFactory
 ├── Banyan.Auth         # NID CA: EmbeddedNipCa, SqliteNipCaStore, RemoteNipCaClient
 ├── Banyan.Identity     # OLS-backed human identity (OIDC, JWT, RBAC) on SQLite
-├── Banyan.Web          # ASP.NET Core demo UI + agents/memory/identity REST,
-│                         + NPS-3 §8 NIP CA HTTP routes (the .NET-side gap-fill)
+├── Banyan.Web          # ASP.NET Core web UI + agents/memory/identity REST,
+│                         + NPS-3 §8 NIP CA HTTP routes (gap-fill for the NuGet)
 ├── Banyan.Node         # banyan serve — NPS.NWP MemoryNodeMiddleware host
 └── Banyan.Cli          # `banyan` dotnet tool
 
@@ -162,7 +162,7 @@ tests/
 ## Built On
 
 - [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/nps) — Neural Web Protocol stack
-- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — reference NIP CA HTTP API spec
+- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — NIP CA server (Docker + Postgres)
 - [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn/ols-root) — human-side identity stack
 - [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + [Microsoft.ML.Tokenizers](https://www.nuget.org/packages/Microsoft.ML.Tokenizers) — ONNX inference + BERT WordPiece
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — multilingual sentence embeddings

@@ -84,10 +84,3 @@ LastPolledAt, Interval, CreatedAt, ExpiresAt, IsExpired (computed)`
 | `services.AddOlsAuthorisation(o => …)` | RBAC + 动态 policy provider |
 | `services.AddOlsOidc(o => …)` | OIDC server pipeline（token/authorize/discovery） |
 | `endpoints.MapOlsOidcEndpoints()` | 路由 `/connect/token`, `/connect/authorize`, `/.well-known/openid-configuration` 等 |
-
-## 待对齐的设计决策（决定后写入 Banyan.Identity）
-
-1. **数据库**：独立 `identity.db` vs. 与 memory 共用 `banyan.db`
-2. **Operator 登录方式**：Device Code（CLI 最佳）／Password Grant（最简单）／Auth Code + PKCE（要拉浏览器）
-3. **JWT 签名密钥生命周期**：RSA 私钥放哪、谁负责 provision（`banyan keygen`?）、轮换策略
-4. **Client 种子**：`banyan` CLI 自身是一个 OIDC client（public, PKCE），首次 init 时预注册
