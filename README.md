@@ -83,6 +83,31 @@ banyan agent issue --id offsite-agent --cap memory.read --remote $BANYAN_CA_URL
 banyan agent verify urn:nps:agent:.../offsite-agent --remote $BANYAN_CA_URL
 ```
 
+## Use as agent memory
+
+If you're an agent author plugging Banyan into Claude / GPT / your own assistant:
+
+```python
+import requests
+
+def recall(query: str, user_id: str, threshold: float = 0.50) -> list[str]:
+    r = requests.get("http://banyan-host:5180/api/memory/search",
+                     params={"q": query, "mode": "hybrid", "k": 5,
+                             "namespace": f"user-{user_id}"}, timeout=2)
+    return [h["content"] for h in r.json()["hits"] if h["score"] > threshold]
+
+def remember(fact: str, user_id: str, agent_nid: str | None = None):
+    requests.post("http://banyan-host:5180/api/memory", json={
+        "content": fact, "namespace": f"user-{user_id}", "agentNid": agent_nid,
+    }, timeout=2)
+```
+
+Recall before every turn, write only on explicit signals (the user says
+*"remember X"*, corrects you, or pins a decision). Full integration guide in
+[`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) — covers
+namespace design, threshold heuristics, write triggers, NID-attested mode,
+failure recovery, anti-patterns.
+
 ## Project Structure
 
 ```
@@ -109,6 +134,7 @@ tests/
 
 | Document | Description |
 |---|---|
+| [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | **Recipe**: connecting an agent (Claude / GPT / custom) to Banyan as persistent memory |
 | [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix — NPS compliance + topology, scope of this repo |
 | [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | Memory / identity / CA SQLite schemas, event log, FTS5, vector layout |
 | [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 (NCP / NWP / NIP) — what we consume, what we fill in |

@@ -77,6 +77,29 @@ banyan agent issue --id offsite-agent --cap memory.read --remote $BANYAN_CA_URL
 banyan agent verify urn:nps:agent:.../offsite-agent --remote $BANYAN_CA_URL
 ```
 
+## 当 agent 持久记忆用
+
+如果你是 agent 作者（Claude / GPT / 自研助手），把 Banyan 接进去：
+
+```python
+import requests
+
+def recall(query: str, user_id: str, threshold: float = 0.50) -> list[str]:
+    r = requests.get("http://banyan-host:5180/api/memory/search",
+                     params={"q": query, "mode": "hybrid", "k": 5,
+                             "namespace": f"user-{user_id}"}, timeout=2)
+    return [h["content"] for h in r.json()["hits"] if h["score"] > threshold]
+
+def remember(fact: str, user_id: str, agent_nid: str | None = None):
+    requests.post("http://banyan-host:5180/api/memory", json={
+        "content": fact, "namespace": f"user-{user_id}", "agentNid": agent_nid,
+    }, timeout=2)
+```
+
+每轮对话开始前 recall 一次，写入只在显式信号（用户说"记住 X"、纠正你、定下决策）。
+完整接入指南在 [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) —
+覆盖 namespace 设计、阈值经验、写入触发、NID 鉴权模式、失败恢复、反模式。
+
 ## 项目结构
 
 ```
@@ -103,6 +126,7 @@ tests/
 
 | 文档 | 内容 |
 |---|---|
+| [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | **Recipe**：把 agent（Claude / GPT / 自研）接到 Banyan 当持久记忆 |
 | [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite · Pro · Ent 三层范围矩阵 — NPS 合规 + 拓扑、本仓库范围 |
 | [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | 记忆 / 身份 / CA 的 SQLite 表结构、事件日志、FTS5、向量布局 |
 | [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 与 NPS-3（NCP / NWP / NIP）映射 — 我们消费什么、补齐什么 |
