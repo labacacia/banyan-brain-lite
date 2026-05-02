@@ -1,10 +1,17 @@
 using Banyan.Auth;
 using Banyan.Core;
 using Banyan.Embedders;
+using Banyan.Identity;
+using Banyan.Identity.Crypto;
+using Banyan.Identity.Extensions;
 using Banyan.Lite;
 using Banyan.Web.Endpoints;
 using Banyan.Web.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 using NPS.NIP.Verification;
+using OLS.Root.Oidc.Extensions;
 
 namespace Banyan.Web;
 
@@ -56,7 +63,6 @@ public static class WebApp
                 };
                 var ca = await EmbeddedNipCa.OpenAsync(caOpts, ct);
                 builder.Services.AddSingleton(ca);
-                // Register the NIP verifier + the in-process CA as a trusted issuer.
                 // OcspUrl=null disables remote OCSP — the embedded CA is the source of truth and
                 // NidAuthenticationMiddleware consults it directly for revocation. An empty string
                 // here would crash HttpClient ("invalid request URI") on every verify.
@@ -72,9 +78,71 @@ public static class WebApp
         }
         builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
 
+        // ── Human identity (OLS-backed OIDC) ──────────────────────────────────────────
+        // Wire the OLS pipeline only when the operator has bootstrapped identity.db /
+        // signing key via `banyan keygen` + `banyan init`. Skipping cleanly when those
+        // are missing keeps `banyan web` usable as a zero-config demo.
+        var identityReady = ShouldEnableIdentity(opts);
+        if (identityReady)
+        {
+            // Issuer is pinned to the actual listening URL — discovery doc, JWT `iss`,
+            // and JWT-validator expected issuer must agree, and the listening URL is the
+            // single source of truth in Lite single-host.
+            var issuer = opts.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries).First().TrimEnd('/');
+            builder.Services.AddBanyanIdentity(o =>
+            {
+                o.DbPath              = opts.IdentityDbPath;
+                o.SigningKeyPath      = opts.IdentitySigningKeyPath;
+                o.Issuer              = issuer;
+                o.Audience            = opts.Audience;
+                o.AccessTokenExpiry   = opts.AccessTokenExpiry;
+                o.RefreshTokenExpiry  = opts.RefreshTokenExpiry;
+                o.CliClientId         = opts.CliClientId;
+            });
+            // OLS issues JWTs but doesn't register a validation scheme — wire JWT Bearer with the
+            // same signing key + issuer + audience so /api/* routes can require [Authorize].
+            var (signingKey, _) = PemSigningKeyLoader.Load(WebOptions.ExpandHome(opts.IdentitySigningKeyPath));
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(jwt =>
+                {
+                    // Disable the default JwtSecurityTokenHandler inbound claim-name mapping
+                    // (e.g. "role" → ClaimTypes.Role) so claims stay verbatim — keeps RoleClaimType
+                    // below matching what OLS actually puts on the wire.
+                    jwt.MapInboundClaims = false;
+                    jwt.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer           = true,
+                        ValidIssuer              = issuer,
+                        ValidateAudience         = true,
+                        ValidAudience            = opts.Audience,
+                        ValidateLifetime         = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey         = signingKey,
+                        RoleClaimType            = "role",
+                        NameClaimType            = "unique_name",
+                    };
+                });
+            builder.Services.AddAuthorization(authz =>
+            {
+                authz.AddPolicy("admin", p => p.RequireRole("admin", "ADMIN"));
+            });
+        }
+
         var app = builder.Build();
         app.UseDefaultFiles();
         app.UseStaticFiles();
+
+        if (identityReady)
+        {
+            // Cookie-to-bearer lifter must run BEFORE UseAuthentication so the JWT validator
+            // sees the synthesised header.
+            app.UseSessionCookie();
+            app.UseAuthentication();
+            app.UseAuthorization();
+            app.MapOlsOidcEndpoints();
+            BrowserAuthEndpoints.Map(app);
+        }
+
         // Mount NID auth only when there's a verifier (i.e. CA was loaded). Otherwise we have no
         // trust anchors and the middleware would 401 every request.
         if (app.Services.GetService<NipIdentVerifier>() is not null)
@@ -83,11 +151,11 @@ public static class WebApp
         app.MapGet("/api/health", () => Results.Ok(new { ok = true, version = "P1.5-demo" }));
         MemoryEndpoints  .Map(app);
         IdentityEndpoints.Map(app);
-        CaEndpoints      .Map(app);
+        CaEndpoints      .Map(app, identityReady);
         // Agent + NIP-CA HTTP endpoints depend on the CA being loaded (DI activation fails otherwise).
         if (app.Services.GetService<EmbeddedNipCa>() is not null)
         {
-            AgentEndpoints.Map(app);
+            AgentEndpoints.Map(app, identityReady);
             NipCaEndpoints.Map(app);
         }
 
@@ -95,7 +163,15 @@ public static class WebApp
         Console.WriteLine($"  memory.db : {memoryDb}");
         if (app.Services.GetService<EmbeddedNipCa>() is { } liveCa)
             Console.WriteLine($"  CA NID    : {liveCa.CaNid}");
+        Console.WriteLine($"  identity  : {(identityReady ? "enabled (OIDC + JWT, admin routes gated)" : "disabled — run `banyan keygen` + `banyan init` to enable")}");
 
         await app.RunAsync(ct);
+    }
+
+    private static bool ShouldEnableIdentity(WebOptions opts)
+    {
+        var dbPath  = WebOptions.ExpandHome(opts.IdentityDbPath);
+        var keyPath = WebOptions.ExpandHome(opts.IdentitySigningKeyPath);
+        return File.Exists(dbPath) && File.Exists(keyPath);
     }
 }

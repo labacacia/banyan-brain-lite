@@ -14,6 +14,16 @@ public sealed class WebOptions
     public string  TokensCachePath{ get; set; } = "~/.banyan/tokens.json";
     public bool    OpenCa         { get; set; } = true;
 
+    // ── Human identity (OLS-backed OIDC + JWT) ──────────────────────────────────────
+    // Enabled only when both files exist (created by `banyan keygen` + `banyan init`).
+    // When disabled the web app runs without admin login — a zero-config demo posture.
+    public string  IdentityDbPath         { get; set; } = "~/.banyan/identity.db";
+    public string  IdentitySigningKeyPath { get; set; } = "~/.banyan/identity-signing.pem";
+    public string  Audience               { get; set; } = "banyan";
+    public TimeSpan AccessTokenExpiry     { get; set; } = TimeSpan.FromMinutes(30);
+    public TimeSpan RefreshTokenExpiry    { get; set; } = TimeSpan.FromDays(30);
+    public string  CliClientId            { get; set; } = "banyan-cli";
+
     /// <summary>Path to the sqlite-vec loadable extension. Null = auto-discover (env var / default cache).</summary>
     public string? SqliteVecLibPath { get; set; }
 

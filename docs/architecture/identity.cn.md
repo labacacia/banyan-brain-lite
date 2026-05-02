@@ -193,6 +193,21 @@ CREATE TABLE ols_reference_tokens (
 | `banyan whoami` | 显示当前 access token 的 subject + scopes |
 | `banyan logout` | 调 `/connect/revocation` 撤销 refresh token，清缓存 |
 
+## Web UI 登录流（P1.5，已实现）
+
+`Banyan.Web` 在 OLS 之上完整对接了浏览器 session 路径：
+
+| 层 | 组件 | 说明 |
+|---|---|---|
+| Cookie 颁发 | `POST /api/auth/login`（`BrowserAuthEndpoints`） | 通过 `ISignInManager<IdentityUser>` 验密，将 JWT 写入 `banyan_session` HttpOnly cookie |
+| Cookie 提升 | `SessionCookieMiddleware` | 在 `UseAuthentication()` 之前把 `banyan_session` 值搬到 `Authorization: Bearer` |
+| JWT 验证 | `AddAuthentication().AddJwtBearer(...)` | 验 issuer、audience、有效期、RS256 签名。`MapInboundClaims = false` 保持 claim 名原样（`"role"` 不被映射） |
+| 授权策略 | `AddAuthorization` — `"admin"` policy | `RequireRole("admin", "ADMIN")` 守卫 `/api/agents` 和 `/api/ca` |
+| Session 状态 | `GET /api/auth/me` | 返回 `{ loggedIn, username, roles, expiresAt }`；未接 identity 时返回 `{ loggedIn: false }`（非 401），前端无感知 |
+| 登出 | `POST /api/auth/logout` | 删除 `banyan_session` cookie |
+
+Identity 是可选的：`WebApp.RunAsync` 检测 `identity.db` 和签名密钥是否存在，不存在则跳过全部 identity 中间件。跳过后 admin 路由仍可访问，但无鉴权（适合内网 demo）。
+
 ## 显式不做（P1.5 范围外）
 
 - 多租户：单租户。
@@ -200,4 +215,3 @@ CREATE TABLE ols_reference_tokens (
 - 2FA：schema 留位但流程不接，`IUserTwoFactorStore` 暂返回 false。
 - 密钥轮换：手动。JWKS 暂只暴露单 `kid`。
 - 外部 provider（Google/MS/GitHub）OAuth2：CLI 不暴露。OLS 支持但 Banyan 暂无场景。
-- `OLS.Root.WebApi` / `Admin` / `Web`：不引。所有管理操作走 Banyan.Cli 文本交互。

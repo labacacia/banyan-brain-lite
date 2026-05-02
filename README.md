@@ -71,10 +71,13 @@ banyan ca init
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 5a. Try the demo web UI (memory + identity + CA panels)
+# 5a. Try the demo web UI (memory + agent + CA panels)
 export BANYAN_EMBEDDER=onnx
 banyan web
 # → open http://localhost:5180
+# → click "Sign in" (top-right) and log in with the admin account created in step 2
+#   The web UI then shows the full admin surface (agent management, CA ops).
+#   Without identity (skip step 2), the UI still works for anonymous memory reads/writes.
 
 # 5b. Or run a real Memory Node listening on NWP
 banyan serve --allow-anon

@@ -193,6 +193,21 @@ CREATE TABLE ols_reference_tokens (
 | `banyan whoami` | Show subject + scopes from cached access token. |
 | `banyan logout` | Revoke refresh token at `/connect/revocation`, clear cache. |
 
+## Web UI login flow (P1.5, implemented)
+
+`Banyan.Web` wires the full browser-session path on top of OLS:
+
+| Layer | Component | Notes |
+|---|---|---|
+| Cookie setter | `POST /api/auth/login` (`BrowserAuthEndpoints`) | Validates credentials via `ISignInManager<IdentityUser>`, stores JWT in `banyan_session` HttpOnly cookie |
+| Cookie lifter | `SessionCookieMiddleware` | Copies `banyan_session` value onto `Authorization: Bearer` before `UseAuthentication()` sees the request |
+| JWT validation | `AddAuthentication().AddJwtBearer(...)` | Validates issuer, audience, lifetime, and RS256 signature. `MapInboundClaims = false` keeps claim names verbatim (`"role"` stays `"role"`) |
+| Authorization | `AddAuthorization` — `"admin"` policy | `RequireRole("admin", "ADMIN")` — gates `/api/agents` and `/api/ca` |
+| Session status | `GET /api/auth/me` | Returns `{ loggedIn, username, roles, expiresAt }`. Returns `{ loggedIn: false }` (not 401) when identity is not wired, so the front-end can stay quiet on zero-config demo nodes |
+| Logout | `POST /api/auth/logout` | Deletes `banyan_session` cookie |
+
+Identity is optional: `WebApp.RunAsync` checks whether `identity.db` and the signing key exist before wiring any of this. Without them, admin routes are still served but completely unauthenticated (suitable for trusted-network demos where CA control is all that's needed).
+
 ## Out of scope (explicit non-goals for P1.5)
 
 - Multi-tenant: single tenant only.
@@ -200,4 +215,3 @@ CREATE TABLE ols_reference_tokens (
 - 2FA: schema present, flow not wired. `IUserTwoFactorStore` returns false until later.
 - Key rotation: manual only. No JWKS multi-key serving yet (single `kid`).
 - External providers (Google/MS/GitHub) OAuth2: not exposed via CLI. OLS supports it but Banyan has no use case.
-- `OLS.Root.WebApi` / `Admin` / `Web`: not pulled in. Banyan.Cli covers all admin operations textually for now.

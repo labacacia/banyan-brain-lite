@@ -401,3 +401,33 @@ async function loadAbout() {
   }
   tick();
 })();
+
+// ── Auth status pill (top-right header) ─────────────────────────────────────
+// Shows the signed-in username when the browser carries a valid `banyan_session`
+// cookie, or a Sign-in link when it doesn't. Stays out of the way when the
+// server is running without OLS identity wired (zero-config Lite demo).
+(async () => {
+  const pill   = document.getElementById('auth-pill');
+  const userEl = document.getElementById('auth-user');
+  const signin = document.getElementById('auth-signin');
+  const logout = document.getElementById('auth-logout');
+  if (!pill || !signin) return;
+
+  try {
+    const r = await fetch('/api/auth/me', { credentials: 'same-origin' });
+    if (!r.ok) return;                          // identity not wired — leave header bare
+    const me = await r.json();
+    if (me.loggedIn) {
+      const role = (me.roles || []).find(x => /admin/i.test(x));
+      userEl.textContent = me.username + (role ? ' · admin' : '');
+      pill.hidden = false;
+    } else {
+      signin.hidden = false;
+    }
+  } catch { /* server doesn't expose /api/auth/me — stay quiet */ }
+
+  if (logout) logout.addEventListener('click', async () => {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+    location.reload();
+  });
+})();

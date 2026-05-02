@@ -21,9 +21,12 @@ public static class AgentEndpoints
 
     public sealed record VerifyResponse(bool Valid, string? ErrorCode, string? Message, string? ExpiresAt);
 
-    public static void Map(WebApplication app)
+    public static void Map(WebApplication app, bool requireAdmin)
     {
         var g = app.MapGroup("/api/agents").WithTags("agents");
+        // Issuing / listing / revoking agent NIDs is operator-only. When OLS identity isn't wired
+        // (Lite zero-config posture) we fall through unauthenticated — same posture as before.
+        if (requireAdmin) g.RequireAuthorization("admin");
 
         g.MapPost("/", async (IssueBody body, EmbeddedNipCa ca) =>
         {

@@ -68,6 +68,9 @@ banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
 export BANYAN_EMBEDDER=onnx
 banyan web
 # 浏览器打开 http://localhost:5180
+# → 点击右上角「Sign in」，用步骤 2 创建的管理员账号登录
+#   登录后界面会显示完整管理功能（agent 管理、CA 操作）。
+#   跳过步骤 2 的话，UI 仍可用于匿名记忆读写（zero-config demo 模式）。
 
 # 5b. 或起一个真 Memory Node（NWP wire）
 banyan serve --allow-anon
