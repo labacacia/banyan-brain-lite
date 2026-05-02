@@ -110,6 +110,9 @@ header {
 .header-right {
   display: flex; align-items: center; gap: 12px;
 }
+/* hidden attribute must win over any display rule */
+[hidden] { display: none !important; }
+
 .auth-pill {
   display: flex; align-items: center; gap: 8px;
   padding: 4px 10px 4px 14px;
@@ -499,3 +502,20 @@ code { font-family: var(--mono); color: var(--blue); }
   color: var(--pink);
   letter-spacing: 0.5px;
 }
+
+/* ── login prompt ────────────────────────────────────────────────────────── */
+.login-prompt {
+  text-align: center; padding: 2.5rem 2rem;
+  border: 1px dashed var(--ink-line);
+  background: rgba(76, 194, 255, 0.03);
+}
+.login-prompt p { margin: 0 0 1.25rem; }
+.btn-primary {
+  display: inline-block;
+  padding: 0.6rem 1.5rem; border-radius: 8px;
+  background: linear-gradient(90deg, var(--blue-2), var(--pink));
+  color: #001528; font-weight: 600; font-size: 0.9rem;
+  text-decoration: none; letter-spacing: 0.5px;
+  transition: filter 150ms;
+}
+.btn-primary:hover { filter: brightness(1.1); }

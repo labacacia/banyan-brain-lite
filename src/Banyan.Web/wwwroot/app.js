@@ -21,6 +21,17 @@ function setStatus(text, kind = "") {
   el.className = "status " + kind;
 }
 
+// ── Global auth state ─────────────────────────────────────────────────────
+// Populated by the auth pill boot; other tabs read it to gate their UI.
+const auth = { wired: false, loggedIn: false, username: null, roles: [] };
+
+function loginPromptHtml(msg) {
+  return `<div class="card login-prompt">
+    <p class="muted">${msg}</p>
+    <a class="btn-primary" href="/login.html">Sign in</a>
+  </div>`;
+}
+
 function tabSwitch(name) {
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
   $$(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
@@ -226,6 +237,12 @@ document.addEventListener("click", async e => {
 });
 
 async function loadAgents() {
+  // Gate: identity wired but not logged in → show sign-in prompt instead of a silent 401.
+  if (auth.wired && !auth.loggedIn) {
+    $("#tab-agents").querySelector(".card:first-child").insertAdjacentHTML(
+      "beforebegin", loginPromptHtml("Agent management requires an admin account. Sign in to continue."));
+    return;
+  }
   try {
     const rows = await api("/api/agents");
     $("#agents-count").textContent = `(${rows.length})`;
@@ -240,7 +257,11 @@ async function loadAgents() {
       </tr>`).join("");
     $$("[data-revoke]").forEach(b => b.addEventListener("click", () => revoke(b.dataset.revoke)));
   } catch (err) {
-    $("#agents-tbody").innerHTML = `<tr><td colspan="6" style="color:var(--bad)">${esc(err.data?.error || err.message)}</td></tr>`;
+    if (err.status === 401 || err.status === 403) {
+      $("#agents-tbody").innerHTML = `<tr><td colspan="6" class="muted">Sign in as admin to view agents.</td></tr>`;
+    } else {
+      $("#agents-tbody").innerHTML = `<tr><td colspan="6" style="color:var(--bad)">${esc(err.data?.error || err.message)}</td></tr>`;
+    }
   }
 }
 
@@ -270,16 +291,24 @@ async function loadAbout() {
   }
 
   const me = $("#me-dl");
-  try {
-    const m = await api("/api/auth/me");
-    if (!m.loggedIn) { me.innerHTML = `<dt>status</dt><dd class="muted">not logged in</dd>`; return; }
+  if (!auth.wired) {
     me.innerHTML = `
-      <dt>username</dt><dd>${esc(m.username || "—")}</dd>
-      <dt>roles</dt><dd>${esc((m.roles || []).join(", ") || "—")}</dd>
-      <dt>expires</dt><dd>${m.expiresAt ? new Date(m.expiresAt).toLocaleString() : "—"}</dd>`;
-  } catch (err) {
-    me.innerHTML = `<dt>status</dt><dd class="muted">${esc(err.message)}</dd>`;
+      <dt>status</dt><dd class="muted">identity not configured</dd>
+      <dt>setup</dt><dd>
+        Run on the server to enable admin login:<br>
+        <code>banyan keygen</code><br>
+        <code>banyan init</code><br>
+        then restart <code>banyan web</code>.
+      </dd>`;
+    return;
   }
+  if (!auth.loggedIn) {
+    me.innerHTML = `<dt>status</dt><dd class="muted">not signed in — <a href="/login.html" style="color:var(--blue)">Sign in</a></dd>`;
+    return;
+  }
+  me.innerHTML = `
+    <dt>username</dt><dd>${esc(auth.username || "—")}</dd>
+    <dt>roles</dt><dd>${esc(auth.roles.join(", ") || "—")}</dd>`;
 }
 
 // ── boot ──────────────────────────────────────────────────────────────────
@@ -404,9 +433,9 @@ async function loadAbout() {
 })();
 
 // ── Auth status pill (top-right header) ─────────────────────────────────────
-// Shows the signed-in username when the browser carries a valid `banyan_session`
-// cookie, or a Sign-in link when it doesn't. Stays out of the way when the
-// server is running without OLS identity wired (zero-config Lite demo).
+// Shows signed-in username+logout when authenticated, a Sign-in link when not,
+// and nothing when identity is not configured (zero-config Lite demo).
+// Also populates the global `auth` object used by other tabs to gate their UI.
 (async () => {
   const pill   = document.getElementById('auth-pill');
   const userEl = document.getElementById('auth-user');
@@ -416,19 +445,23 @@ async function loadAbout() {
 
   try {
     const r = await fetch('/api/auth/me', { credentials: 'same-origin' });
-    if (!r.ok) return;                          // identity not wired — leave header bare
+    if (!r.ok) return;               // identity not wired — leave header bare, auth stays {wired:false}
+    auth.wired = true;
     const me = await r.json();
     if (me.loggedIn) {
-      const role = (me.roles || []).find(x => /admin/i.test(x));
+      auth.loggedIn  = true;
+      auth.username  = me.username;
+      auth.roles     = me.roles || [];
+      const role = auth.roles.find(x => /admin/i.test(x));
       userEl.textContent = me.username + (role ? ' · admin' : '');
       pill.hidden = false;
     } else {
       signin.hidden = false;
     }
-  } catch { /* server doesn't expose /api/auth/me — stay quiet */ }
+  } catch { /* network error — leave header bare */ }
 
-  if (logout) logout.addEventListener('click', async () => {
+  logout?.addEventListener('click', async () => {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    location.reload();
+    location.href = '/';
   });
 })();
