@@ -76,6 +76,27 @@ public static class WebApp
                 builder.Services.AddSingleton<NipIdentVerifier>();
             }
         }
+
+        // ── External CA trust anchors (--trusted-issuer) ──────────────────────────────
+        // When running without an embedded CA, operators can supply trust anchors for
+        // one or more external nip-ca-server instances. NID auth middleware will then
+        // verify certs cryptographically (and optionally via OCSP) against those CAs.
+        // Silently skipped when the embedded CA is already wired (avoids double-registration).
+        if (opts.TrustedIssuers.Count > 0 && builder.Services.All(s => s.ServiceType != typeof(NipVerifierOptions)))
+        {
+            builder.Services.AddSingleton(_ => new NipVerifierOptions
+            {
+                TrustedIssuers      = opts.TrustedIssuers,
+                LocalRevokedSerials = new HashSet<string>(),
+                OcspUrl             = opts.ExternalOcspUrl ?? null!,
+            });
+            builder.Services.AddHttpClient();
+            builder.Services.AddSingleton<NipIdentVerifier>();
+            Console.WriteLine($"[nid]  trusting {opts.TrustedIssuers.Count} external CA(s): {string.Join(", ", opts.TrustedIssuers.Keys)}");
+            if (opts.ExternalOcspUrl is not null)
+                Console.WriteLine($"[nid]  OCSP: {opts.ExternalOcspUrl}");
+        }
+
         builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
 
         // ── Human identity (OLS-backed OIDC) ──────────────────────────────────────────

@@ -42,6 +42,12 @@ internal static class CommandContext
         return null;
     }
 
+    public static IEnumerable<string> GetOptions(string[] args, string flag)
+    {
+        for (int i = 0; i < args.Length - 1; i++)
+            if (args[i] == flag) yield return args[i + 1];
+    }
+
     public static bool HasFlag(string[] args, string flag) => args.Contains(flag);
 }
 
