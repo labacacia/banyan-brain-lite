@@ -107,6 +107,26 @@ header {
 }
 .status.ok  { color: var(--good); border-color: rgba(0, 255, 161, 0.4); box-shadow: 0 0 12px rgba(0, 255, 161, 0.2); }
 .status.err { color: var(--bad);  border-color: rgba(255, 51, 102, 0.4); box-shadow: 0 0 12px rgba(255, 51, 102, 0.3); }
+.header-right {
+  display: flex; align-items: center; gap: 12px;
+}
+.auth-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 10px 4px 14px;
+  border-radius: 999px;
+  background: rgba(13, 22, 60, 0.7);
+  border: 1px solid var(--ink-line);
+}
+#auth-signin {
+  font-size: 12px; padding: 5px 14px; border-radius: 999px;
+  border: 1px solid var(--ink-line); color: var(--blue);
+  text-decoration: none;
+  transition: border-color 200ms, box-shadow 200ms;
+}
+#auth-signin:hover {
+  border-color: var(--blue);
+  box-shadow: 0 0 10px var(--blue-glow-soft);
+}
 
 /* ── tabs ───────────────────────────────────────────────────────────────── */
 nav.tabs {

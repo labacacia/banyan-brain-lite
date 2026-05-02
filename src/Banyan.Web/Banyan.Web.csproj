@@ -9,6 +9,10 @@
     <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
     <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
     <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
+    <ProjectReference Include="../Banyan.Identity/Banyan.Identity.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
   </ItemGroup>
   <ItemGroup>
     <!-- The Web SDK already includes wwwroot/** as Content; force CopyToOutput so wwwroot lands

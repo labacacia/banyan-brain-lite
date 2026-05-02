@@ -6,6 +6,7 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Banyan.Core/Banyan.Core.csproj" />
     <ProjectReference Include="../../src/Banyan.Auth/Banyan.Auth.csproj" />
+    <ProjectReference Include="../../src/Banyan.Identity/Banyan.Identity.csproj" />
     <ProjectReference Include="../../src/Banyan.Web/Banyan.Web.csproj" />
   </ItemGroup>
   <ItemGroup>
