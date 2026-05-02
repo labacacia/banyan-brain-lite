@@ -68,9 +68,14 @@ banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
 export BANYAN_EMBEDDER=onnx
 banyan web
 # 浏览器打开 http://localhost:5180
-# → 点击右上角「Sign in」，用步骤 2 创建的管理员账号登录
-#   登录后界面会显示完整管理功能（agent 管理、CA 操作）。
-#   跳过步骤 2 的话，UI 仍可用于匿名记忆读写（zero-config demo 模式）。
+# → 配置了身份（步骤 2）时，界面会自动跳转到 /login.html
+# → 用管理员账号登录后显示完整管理功能（agent 管理、CA 操作）
+# → 跳过步骤 2 时，身份相关页面会跳转，匿名记忆读写 API 仍然正常工作
+
+# 5a-alt. 连接外部 NIP CA（而不是内嵌 CA）
+banyan web --no-ca \
+  --trusted-issuer "urn:nps:ca:your-ca-nid=ed25519:your-ca-pubkey" \
+  --ocsp-url http://your-ca-host:17435/ocsp
 
 # 5b. 或起一个真 Memory Node（NWP wire）
 banyan serve --allow-anon
@@ -128,7 +133,7 @@ src/
 tests/
 ├── Banyan.Core.Tests       (5)
 ├── Banyan.Lite.Tests       (42，含 6 个 ONNX + 5 个 sqlite-vec)
-├── Banyan.Auth.Tests       (37，含 7 个 RemoteNipCaClient + 10 个 NID 中间件)
+├── Banyan.Auth.Tests       (46，含 7 个 RemoteNipCaClient + 10 个 NID 中间件)
 ├── Banyan.Identity.Tests   (43)
 └── Banyan.Node.Tests       (8)
 ```

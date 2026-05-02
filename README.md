@@ -75,9 +75,15 @@ banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
 export BANYAN_EMBEDDER=onnx
 banyan web
 # → open http://localhost:5180
-# → click "Sign in" (top-right) and log in with the admin account created in step 2
-#   The web UI then shows the full admin surface (agent management, CA ops).
-#   Without identity (skip step 2), the UI still works for anonymous memory reads/writes.
+# → the web UI redirects to /login.html when identity is configured (step 2)
+# → sign in with the admin account to access agent management and CA ops
+# → if identity is not configured (step 2 skipped), identity-gated pages redirect
+#   but anonymous memory reads/writes still work via the API
+
+# 5a-alt. Connect to an external NIP CA server instead of the embedded one
+banyan web --no-ca \
+  --trusted-issuer "urn:nps:ca:your-ca-nid=ed25519:your-ca-pubkey" \
+  --ocsp-url http://your-ca-host:17435/ocsp
 
 # 5b. Or run a real Memory Node listening on NWP
 banyan serve --allow-anon
@@ -137,7 +143,7 @@ src/
 tests/
 ├── Banyan.Core.Tests       (5)
 ├── Banyan.Lite.Tests       (42, incl. 6 ONNX + 5 sqlite-vec)
-├── Banyan.Auth.Tests       (37, incl. 7 RemoteNipCaClient + 10 NID middleware)
+├── Banyan.Auth.Tests       (46, incl. 7 RemoteNipCaClient + 10 NID middleware)
 ├── Banyan.Identity.Tests   (43)
 └── Banyan.Node.Tests       (8)
 ```
