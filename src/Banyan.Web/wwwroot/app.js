@@ -456,7 +456,8 @@ async function loadAbout() {
       userEl.textContent = me.username + (role ? ' · admin' : '');
       pill.hidden = false;
     } else {
-      signin.hidden = false;
+      // Identity is configured but user is not authenticated — enforce login.
+      location.replace('/login.html');
     }
   } catch { /* network error — leave header bare */ }
 
