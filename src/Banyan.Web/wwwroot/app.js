@@ -256,25 +256,26 @@ async function loadAbout() {
   const dl = $("#about-dl"); dl.innerHTML = "";
   try {
     const ca = await api("/api/ca");
+    const modeLabel = ca.mode === "external" ? " <span class='badge'>external</span>" : " <span class='badge'>embedded</span>";
+    const issued  = ca.issuedCount  != null ? ca.issuedCount  : "—";
+    const revoked = ca.revokedCount != null ? ca.revokedCount : "—";
     dl.innerHTML = `
-      <dt>CA NID</dt><dd>${esc(ca.caNid)}</dd>
-      <dt>CA pub key</dt><dd>${esc(ca.caPubKey)}</dd>
-      <dt>Issued</dt><dd>${ca.issuedCount}</dd>
-      <dt>Revoked</dt><dd>${ca.revokedCount}</dd>`;
+      <dt>CA mode</dt><dd>${ca.mode}${modeLabel}</dd>
+      <dt>CA NID</dt><dd class="mono small">${esc(ca.caNid)}</dd>
+      <dt>CA pub key</dt><dd class="mono small">${esc(ca.caPubKey)}</dd>
+      <dt>Issued</dt><dd>${issued}</dd>
+      <dt>Revoked</dt><dd>${revoked}</dd>`;
   } catch (err) {
     dl.innerHTML = `<dt>CA</dt><dd class="muted">${esc(err.data?.error || err.message)}</dd>`;
   }
 
   const me = $("#me-dl");
   try {
-    const m = await api("/api/identity/me");
-    if (!m.loggedIn) { me.innerHTML = `<dt>status</dt><dd class="muted">not logged in (run <code>banyan login</code>)</dd>`; return; }
+    const m = await api("/api/auth/me");
+    if (!m.loggedIn) { me.innerHTML = `<dt>status</dt><dd class="muted">not logged in</dd>`; return; }
     me.innerHTML = `
-      <dt>subject</dt><dd>${esc(m.subject || "—")}</dd>
-      <dt>name</dt><dd>${esc(m.name || "—")}</dd>
-      <dt>scopes</dt><dd>${esc((m.scopes || []).join(" ") || "—")}</dd>
-      <dt>issuer</dt><dd>${esc(m.issuer || "—")}</dd>
-      <dt>client</dt><dd>${esc(m.clientId || "—")}</dd>
+      <dt>username</dt><dd>${esc(m.username || "—")}</dd>
+      <dt>roles</dt><dd>${esc((m.roles || []).join(", ") || "—")}</dd>
       <dt>expires</dt><dd>${m.expiresAt ? new Date(m.expiresAt).toLocaleString() : "—"}</dd>`;
   } catch (err) {
     me.innerHTML = `<dt>status</dt><dd class="muted">${esc(err.message)}</dd>`;

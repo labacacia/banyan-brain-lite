@@ -24,8 +24,10 @@ public sealed class NidAuthenticationMiddleware(
     NidAuthenticationOptions opts,
     ILogger<NidAuthenticationMiddleware> log)
 {
-    public async Task InvokeAsync(HttpContext ctx, EmbeddedNipCa? ca = null)
+    public async Task InvokeAsync(HttpContext ctx)
     {
+        // GetService (not GetRequiredService) so this stays null when --no-ca is active.
+        var ca = ctx.RequestServices.GetService<EmbeddedNipCa>();
         var path   = ctx.Request.Path.Value ?? "";
         var method = ctx.Request.Method;
 
