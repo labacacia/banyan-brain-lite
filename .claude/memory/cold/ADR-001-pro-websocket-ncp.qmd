@@ -1,0 +1,24 @@
+[STATUS] Accepted
+[DATE] 2026-05-02
+
+[DECISION] Pro tier adds WebSocket as a second NCP transport alongside HTTP/NWP.
+[DECISION] HTTP/NWP remains the default; WebSocket NCP is opt-in via --ncp-mode websocket.
+[DECISION] Both transports share the same BanyanMemoryProvider backend and NID auth logic.
+[DECISION] Tier2 MsgPack encoding (NPS.Core.Codecs.Tier2MsgPackCodec) is unlocked on the WebSocket path.
+
+[RATIONALE] NWP is already "NCP over HTTP" (Tier1 JSON) — WebSocket only changes the transport, not the frame model.
+[RATIONALE] ASP.NET Core MapWebSocket lets HTTP and WS coexist on the same port and Kestrel listener with no infra change.
+[RATIONALE] Full-duplex WebSocket enables server-push (e.g. memory-change notifications to subscribed agents) which HTTP polling cannot do efficiently.
+[RATIONALE] NID auth reuses NidAuthenticationMiddleware: first WS frame carries the IdentFrame instead of an HTTP header.
+[RATIONALE] Firewall-friendly: same port 17435 as HTTP, no new firewall rules needed.
+
+[IMPACT] New file: Banyan.Web/Transport/WebSocketNcpHandler.cs — WS upgrade → frame loop (decode QueryFrame → MemoryProvider → encode response → send).
+[IMPACT] New file: Banyan.Web/Transport/NcpFrameCodec.cs — thin wrapper over NPS.Core.Codecs selecting Tier1/Tier2 based on client negotiation header.
+[IMPACT] WebApp.cs: app.MapWebSocket("/ncp", handler) registered when --ncp-mode websocket is set.
+[IMPACT] WebOptions.cs: NcpMode enum { None, WebSocket } + --ncp-mode CLI flag.
+[IMPACT] Agents using HTTP are unaffected — the /api/memory/* routes stay unchanged.
+[IMPACT] Pro deployment guide must document WebSocket connection flow and Tier2 negotiation header.
+
+[CONTEXT] Tier2 MsgPack is available in NPS.Core but unused in Lite (everything is Tier1 JSON).
+[CONTEXT] The WebSocket path is internal to Pro nodes; external agent SDK still speaks HTTP in the common case.
+[CONTEXT] Raw TCP NCP (Ent) supersedes WebSocket for intra-cluster Anchor→Memory traffic — see ADR-002.

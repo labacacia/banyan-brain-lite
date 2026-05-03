@@ -1,0 +1,16 @@
+[BRANCH] main
+[TASK] Pro milestone — WebSocket NCP (ADR-001)
+[STATUS] planning
+
+[DONE] Lite v0.1.0-alpha.1 released to nuget.org (5 packages)
+[DONE] GitHub Release v0.1.0-alpha.1 created
+[DONE] .mcp.json added for Claude Code integration
+[DONE] nuget.config: Banyan.* routed to nuget.org, Nexus for OLS.Root.* only
+
+[NEXT] Start Pro: implement WebSocket NCP transport
+       ADR: .claude/memory/cold/ADR-001-pro-websocket-ncp.qmd
+       Entry point: Banyan.Node / MemoryNodeApp.RunAsync
+       Approach: MapWebSocket, same port as HTTP, Tier2 MsgPack, --ncp-mode flag
+
+[FILES]
+[BLOCK]
