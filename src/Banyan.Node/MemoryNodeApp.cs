@@ -2,7 +2,7 @@ using Banyan.Auth;
 using Banyan.Core;
 using Banyan.Embedders;
 using Banyan.Lite;
-using Banyan.Web.Middleware;
+using Banyan.Node.Auth;
 using NPS.NIP.Verification;
 using NPS.NWP.Extensions;
 using NPS.NWP.MemoryNode;
@@ -109,7 +109,7 @@ public static class MemoryNodeApp
         // NPS-3 §8 NIP CA HTTP routes — mount when this node also acts as a CA.
         // Interoperates with the Go/Java NPS-CA references and our own RemoteNipCaClient.
         if (ca is not null)
-            Banyan.Web.Endpoints.NipCaEndpoints.Map(app);
+            NipCaEndpoints.Map(app);
 
         app.UseMemoryNode<BanyanMemoryProvider>(o =>
         {

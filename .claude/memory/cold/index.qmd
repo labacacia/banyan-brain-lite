@@ -1,0 +1,4 @@
+[INDEX] Cold ADR files — load only when a specific decision is questioned.
+
+ADR-001  Pro — WebSocket NCP transport      ADR-001-pro-websocket-ncp.qmd
+ADR-002  Ent — Raw TCP NCP transport        ADR-002-ent-raw-tcp-ncp.qmd

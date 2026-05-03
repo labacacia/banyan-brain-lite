@@ -56,6 +56,9 @@ tokenizer.json
 Thumbs.db
 desktop.ini
 
+# ── Build artifacts (dotnet pack output) ────────────────────────────────────
+artifacts/
+
 # ── Tooling caches ──────────────────────────────────────────────────────────
 .cache/
 *.log

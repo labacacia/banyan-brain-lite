@@ -6,6 +6,7 @@ using Banyan.Auth;
 using Banyan.Identity;
 using Banyan.Identity.Crypto;
 using Banyan.Identity.Extensions;
+using Banyan.Node.Auth;
 using Banyan.Web.Endpoints;
 using Banyan.Web.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

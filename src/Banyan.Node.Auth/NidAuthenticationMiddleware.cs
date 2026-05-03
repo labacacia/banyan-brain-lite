@@ -1,13 +1,16 @@
+// Copyright 2026 INNO LOTUS PTY LTD
+// SPDX-License-Identifier: Apache-2.0
+
 using Banyan.Auth;
 using NPS.NIP.Verification;
 
-namespace Banyan.Web.Middleware;
+namespace Banyan.Node.Auth;
 
 /// <summary>
 /// Server-side counterpart of <see cref="NidAuthHeader"/>. Parses
 /// <c>Authorization: NID &lt;base64(IdentFrame JSON)&gt;</c>, runs the upstream
 /// <see cref="NipIdentVerifier"/>, and stashes the verified NID + frame into
-/// <see cref="HttpContext.Items"/> for downstream endpoints to use as the audit subject.
+/// <see cref="HttpContext.Items"/> for downstream middleware to use as the audit subject.
 ///
 /// Behaviour is gated by <see cref="NidAuthenticationOptions.Mode"/>:
 ///   AnonymousAllowed  → never blocks; populates Items if a valid frame was supplied
@@ -15,8 +18,7 @@ namespace Banyan.Web.Middleware;
 ///   AllRequired       → every API request needs a valid NID
 ///
 /// On rejection the response is a NPS-shaped JSON error
-/// (<c>{error_code, message}</c>) with a <c>WWW-Authenticate: NID realm="banyan"</c> header
-/// — matches the format used by <c>NipCaEndpoints</c> error replies.
+/// (<c>{error_code, message}</c>) with a <c>WWW-Authenticate: NID realm="banyan"</c> header.
 /// </summary>
 public sealed class NidAuthenticationMiddleware(
     RequestDelegate next,
@@ -53,10 +55,9 @@ public sealed class NidAuthenticationMiddleware(
             }
             else
             {
-                // Lite: identity-only verification. Per-node scope (`TargetNodePath`)
-                // would force every IdentFrame to enumerate every path it can hit, which is
-                // a Pro/Ent multi-tenant concern. Authorization layers can re-check the frame
-                // (stashed in Items) with whatever scope they need.
+                // Lite: identity-only verification. Per-node scope (TargetNodePath)
+                // is a Pro/Ent multi-tenant concern; authorization layers can re-check
+                // the frame stashed in Items with whatever scope they need.
                 var verifyCtx = new NipVerifyContext { AsOf = DateTime.UtcNow };
                 try
                 {
@@ -69,9 +70,8 @@ public sealed class NidAuthenticationMiddleware(
                     }
                     else if (ca is not null)
                     {
-                        // The static `LocalRevokedSerials` set on NipVerifierOptions doesn't see
-                        // runtime revocations from the embedded CA, so consult the CA's authoritative
-                        // status before granting the request.
+                        // Static LocalRevokedSerials doesn't see runtime revocations from the
+                        // embedded CA, so consult the CA's authoritative status before granting.
                         var caStatus = await ca.VerifyAsync(frame.Nid, ctx.RequestAborted);
                         if (!caStatus.Valid)
                         {
