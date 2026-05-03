@@ -8,7 +8,7 @@
     <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
     <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
     <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
-    <ProjectReference Include="../Banyan.Web/Banyan.Web.csproj" />
+    <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="LabAcacia.NPS.NWP" Version="1.0.0-alpha.5" />

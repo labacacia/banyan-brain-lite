@@ -10,6 +10,7 @@
     <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
     <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
     <ProjectReference Include="../Banyan.Identity/Banyan.Identity.csproj" />
+    <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />

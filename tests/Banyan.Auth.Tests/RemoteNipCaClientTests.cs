@@ -1,5 +1,5 @@
 using Banyan.Auth;
-using Banyan.Web.Endpoints;
+using Banyan.Node.Auth;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
