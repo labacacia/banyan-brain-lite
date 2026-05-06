@@ -13,6 +13,7 @@ return command switch
 {
     "keygen" => KeygenCommand.Run(rest),
     "init"   => await InitCommand.RunAsync(rest),
+    "reset-admin-pwd" => await ResetAdminPasswordCommand.RunAsync(rest),
     "login"  => await LoginCommand.RunAsync(rest),
     "whoami" => WhoamiCommand.Run(rest),
     "logout" => await LogoutCommand.RunAsync(rest),
@@ -47,6 +48,13 @@ static void PrintHelp()
                       --config PATH      (default: ~/.banyan/identity-config.json)
                       --admin-username U
                       --admin-password P
+          reset-admin-pwd
+                    Reset an existing admin user's password
+                      --config PATH
+                      --admin-username U (default: admin)
+                      --admin-password P
+                      --confirm-password P
+                      --no-confirm
           login     Log in via OIDC Device Code (default) or PKCE (--browser)
                       --browser
                       --issuer URL

@@ -30,6 +30,7 @@
   <nav class="tabs">
     <button class="tab active" data-tab="memory">Memory</button>
     <button class="tab"        data-tab="agents">Agents</button>
+    <button class="tab"        data-tab="ca">CA Server</button>
     <button class="tab"        data-tab="about">About</button>
   </nav>
 
@@ -92,7 +93,7 @@
     <!-- ── Agents tab ────────────────────────────────────────────────────── -->
     <section id="tab-agents" class="panel">
       <div class="card">
-        <h2>Issue agent NID</h2>
+        <h2>Issue external agent NID</h2>
         <form id="issue-form">
           <div class="row">
             <input id="issue-id"   placeholder="agent id (e.g. summarizer-01)" required />
@@ -109,6 +110,28 @@
           <thead><tr><th>NID</th><th>serial</th><th>type</th><th>issued</th><th>status</th><th></th></tr></thead>
           <tbody id="agents-tbody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- ── CA Server tab ─────────────────────────────────────────────────── -->
+    <section id="tab-ca" class="panel">
+      <div class="card">
+        <h2>CA Server</h2>
+        <div class="seg ca-mode" id="ca-server-mode">
+          <button class="seg-btn active" data-ca-type="embedded">Embedded CA</button>
+          <button class="seg-btn" data-ca-type="external">External CA Server</button>
+        </div>
+        <div class="row" id="ca-external-row">
+          <input id="ca-server-address" placeholder="https://ca.example.com" />
+          <button type="button" id="ca-test">Test</button>
+          <button type="button" id="ca-save">Apply</button>
+        </div>
+        <div id="ca-server-result" class="muted small"></div>
+      </div>
+
+      <div class="card">
+        <h2>Current CA</h2>
+        <dl id="ca-server-dl"></dl>
       </div>
     </section>
 

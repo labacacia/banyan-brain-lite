@@ -49,6 +49,26 @@ internal static class CommandContext
     }
 
     public static bool HasFlag(string[] args, string flag) => args.Contains(flag);
+
+    public static string Prompt(string label)
+    {
+        Console.Write(label);
+        return Console.ReadLine() ?? "";
+    }
+
+    public static string PromptSecret(string label)
+    {
+        Console.Write(label);
+        var sb = new System.Text.StringBuilder();
+        while (true)
+        {
+            var k = Console.ReadKey(intercept: true);
+            if (k.Key == ConsoleKey.Enter) { Console.WriteLine(); break; }
+            if (k.Key == ConsoleKey.Backspace && sb.Length > 0) sb.Length--;
+            else if (!char.IsControl(k.KeyChar)) sb.Append(k.KeyChar);
+        }
+        return sb.ToString();
+    }
 }
 
 /// <summary>Cached token bundle written to <see cref="CommandContext.DefaultTokensPath"/> after a successful login.</summary>

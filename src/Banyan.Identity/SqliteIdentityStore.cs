@@ -47,6 +47,20 @@ public sealed class SqliteIdentityStore : IAsyncDisposable, IDisposable
     public static Task<SqliteIdentityStore> OpenInMemoryAsync(CancellationToken ct = default)
         => OpenAsync("Data Source=:memory:", ct);
 
+    public async Task<bool> HasUsersInRoleAsync(string normalizedRoleName, CancellationToken ct = default)
+    {
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = """
+            SELECT COUNT(1)
+            FROM ols_user_roles ur
+            JOIN ols_roles r ON r.id = ur.role_id
+            WHERE r.normalized_name = @role
+            """;
+        cmd.Parameters.AddWithValue("@role", normalizedRoleName);
+        var count = Convert.ToInt64(await cmd.ExecuteScalarAsync(ct));
+        return count > 0;
+    }
+
     public void Dispose() => _conn.Dispose();
 
     public ValueTask DisposeAsync()

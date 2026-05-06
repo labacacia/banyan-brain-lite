@@ -16,6 +16,10 @@ internal static class WebCommand
                   --ca-db PATH        SQLite nipca.db path
                   --ca-key PATH       Ed25519 CA private key (PEM, encrypted)
                   --ca-nid NID        CA NID (default: urn:nps:ca:local.banyan:root)
+                  --ca-server-type TYPE
+                                      embedded (default) | external. Persists to ~/.banyan/web-config.json
+                  --ca-server-address URL
+                                      Required when --ca-server-type external. Tested before saving.
                   --no-ca             skip opening the CA (memory-only mode)
                   --vec-lib PATH      sqlite-vec loadable extension (default: env BANYAN_SQLITE_VEC_LIB or ~/.banyan/sqlite-vec/vec0.so)
                   --nid-auth MODE     NID auth enforcement: AnonymousAllowed (default) | WritesRequired | AllRequired
@@ -27,19 +31,20 @@ internal static class WebCommand
                   --ocsp-url URL      OCSP endpoint of the external CA for revocation checks
 
                 Auth:
-                  Embedded CA: set BANYAN_NIP_CA_PASSPHRASE to unlock CA on startup.
-                  External CA: use --trusted-issuer (no passphrase needed). --no-ca implied.
+                  Embedded CA: Lite auto-initialises a local CA on first launch.
+                  External CA: use --ca-server-type external --ca-server-address URL.
                   Without either, NID auth is disabled and /api/memory stays open.
                 """);
             return 0;
         }
 
-        var opts = new WebOptions();
+        var opts = WebConfigStore.Load();
         if (CommandContext.GetOption(args, "--urls")      is { } u) opts.Urls         = u;
         if (CommandContext.GetOption(args, "--memory-db") is { } m) opts.MemoryDbPath = m;
         if (CommandContext.GetOption(args, "--ca-db")     is { } d) opts.NipCaDbPath  = d;
         if (CommandContext.GetOption(args, "--ca-key")    is { } k) opts.NipCaKeyPath = k;
         if (CommandContext.GetOption(args, "--ca-nid")    is { } n) opts.CaNid        = n;
+        if (CommandContext.GetOption(args, "--ca-server-address") is { } csa) opts.ExternalCaServerAddress = csa;
         if (CommandContext.GetOption(args, "--vec-lib")   is { } v) opts.SqliteVecLibPath = v;
         if (CommandContext.HasFlag(args, "--no-ca"))                opts.OpenCa       = false;
         if (CommandContext.GetOption(args, "--nid-auth")  is { } na &&
@@ -52,6 +57,47 @@ internal static class WebCommand
             var eq = ti.IndexOf('=');
             if (eq > 0) opts.TrustedIssuers[ti[..eq].Trim()] = ti[(eq + 1)..].Trim();
             else Console.Error.WriteLine($"[warn] --trusted-issuer ignored (expected NID=PUBKEY): {ti}");
+        }
+
+        if (CommandContext.GetOption(args, "--ca-server-type") is { } cst)
+        {
+            if (!Enum.TryParse<CaServerMode>(cst, ignoreCase: true, out var caMode))
+            {
+                Console.Error.WriteLine("web: --ca-server-type must be embedded or external");
+                return 64;
+            }
+
+            opts.CaServerType = caMode;
+            if (caMode == CaServerMode.External)
+            {
+                if (string.IsNullOrWhiteSpace(opts.ExternalCaServerAddress))
+                {
+                    Console.Error.WriteLine("web: --ca-server-address is required when --ca-server-type external");
+                    return 64;
+                }
+
+                var probe = await CaServerProbe.TestExternalAsync(opts.ExternalCaServerAddress);
+                if (!probe.Ok || probe.CaNid is null || probe.PublicKey is null)
+                {
+                    Console.Error.WriteLine($"web: external CA server test failed; configuration not saved. {probe.Message}");
+                    return 2;
+                }
+
+                opts.OpenCa = false;
+                opts.ExternalCaServerAddress = probe.Address;
+                opts.TrustedIssuers.Clear();
+                opts.TrustedIssuers[probe.CaNid] = probe.PublicKey;
+                WebConfigStore.Save(opts);
+                Console.WriteLine($"Configured external CA server {probe.Address} ({probe.CaNid})");
+            }
+            else
+            {
+                opts.OpenCa = true;
+                opts.ExternalCaServerAddress = null;
+                opts.TrustedIssuers.Clear();
+                WebConfigStore.Save(opts);
+                Console.WriteLine("Configured embedded CA server.");
+            }
         }
 
         await WebApp.RunAsync(opts, args);

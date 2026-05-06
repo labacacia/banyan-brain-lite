@@ -38,13 +38,14 @@ Banyan 是一个事件驱动的记忆存储 — agent 通过 `Remember()` / `Sea
   `app.UseMemoryNode<TProvider>`，暴露 `/.nwm`（`NeuralWebManifest`）、
   `/.schema`、`POST /api/memory/query`（带 `anchor_ref`、`token_est` 的 NWP 帧）。
 - **Web UI** — 霓虹玻璃 + 粒子网格背景，三 tab SPA（Memory · Agents · About）。
-  配置了身份后强制登录；匿名记忆读写通过 API 仍可用。
-- **MCP Server** — `banyan mcp` 作为 Model Context Protocol stdio 服务器运行，
-  给 Claude Desktop 和 Claude Code 提供四个一等公民记忆工具（`recall` / `remember` /
-  `update` / `forget`），无需在 system prompt 里堆 API 文档。
+  首次启动强制进入 admin setup；之后管理 agent 和 CA 都需要登录。
+- **MCP Server** — `banyan mcp` 作为 Model Context Protocol stdio 服务器运行；
+  `banyan web` 也会在 `/mcp` 暴露 Streamable HTTP MCP。两条路径共享同一套
+  一等公民记忆工具（`recall` / `remember` / `update` / `forget`），无需在
+  system prompt 里堆 API 文档。
 - **单二进制 CLI** — `dotnet tool install -g Banyan.Cli` 一键拿全功能
-  （`keygen` / `init` / `login` / `ca init` / `agent issue/verify/revoke` /
-  `embedder download` / `mcp` / `web` / `serve`）。
+  （`keygen` / `init` / `reset-admin-pwd` / `login` / `ca init` /
+  `agent issue/verify/revoke` / `embedder download` / `mcp` / `web` / `serve`）。
 
 ## 快速开始
 
@@ -55,40 +56,45 @@ dotnet tool install -g Banyan.Cli
 # 1. 拉 embedder 模型 + sqlite-vec 扩展（约 24 MB）
 banyan embedder download
 
-# 2. 初始化人机身份（创建 admin 账号和 JWT 签名密钥）
-banyan keygen
-banyan init
-
-# 3. 初始化 NID CA（如果接外部 CA Server 则跳过）
+# 2. 初始化 NID CA（如果接外部 CA Server 则跳过）
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
 banyan ca init
 
-# 4. 签发一个 agent 证书
+# 3. 签发一个 agent 证书
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 5. 启动 Web UI
+# 4. 启动 Web UI
 export BANYAN_EMBEDDER=onnx
 banyan web
 # 浏览器打开 http://localhost:5180
-# → 配置了身份（步骤 2）时自动跳转到 /login.html
-# → 用管理员账号登录后可管理 agent 和 CA
-# → 跳过步骤 2 时，匿名记忆读写通过 API 仍然可用
+# → 首次启动自动跳转到 /setup.html 创建 admin 账号
+# → setup 后登录即可管理 agent 和 CA
+
+# 也可以走 CLI-first 初始化，不用浏览器 setup：
+banyan init --admin-username admin --admin-password 'change-me-now'
+
+# 之后如需重置已有 admin 密码：
+banyan reset-admin-pwd --admin-username admin
 
 # 如需接外部 nip-ca-server 而不用内置 CA：
 banyan web --no-ca \
   --trusted-issuer "urn:nps:ca:<ca-nid>=ed25519:<ca-pubkey>" \
   --ocsp-url http://your-ca-host:17435/ocsp
 
-# 6. 打开 NID 鉴权（writes-required 是常见生产档）
+# 5. 打开 NID 鉴权（writes-required 是常见生产档）
 banyan web   --nid-auth writes-required
 banyan serve --nid-auth writes-required
 # POST/PUT/DELETE/PATCH 都要带 Authorization: NID <base64(IdentFrame)>，读保持公开
 
-# 7. 或者起一个纯 NWP Memory Node（无 Web UI）
+# 6. 或者起一个纯 NWP Memory Node（无 Web UI）
 banyan serve --allow-anon
 # POST /api/memory/query 带 QueryFrame body
 # GET  /.nwm 看 NeuralWebManifest
+
+# 7. 让 Codex 连接 Web 原生 MCP endpoint
+codex mcp add banyan-lite --url http://localhost:5180/mcp
+# /mcp 会桥接到 Banyan 原生 memory store；打开 --nid-auth 时也走同一套 NID middleware。
 
 # 8. 在另一台主机：通过远端 CA issue / verify / revoke
 export BANYAN_CA_URL=https://your-ca-host:5180

@@ -16,6 +16,7 @@
     <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
     <ProjectReference Include="../Banyan.Identity/Banyan.Identity.csproj" />
     <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
+    <ProjectReference Include="../Banyan.Mcp/Banyan.Mcp.csproj" />
     <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
     <ProjectReference Include="../Banyan.Node/Banyan.Node.csproj" />
     <ProjectReference Include="../Banyan.Web/Banyan.Web.csproj" />

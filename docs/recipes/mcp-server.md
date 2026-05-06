@@ -74,6 +74,19 @@ Or add to your project's `.mcp.json`:
 }
 ```
 
+### 5. Wire into Codex over Web MCP
+
+`banyan web` also exposes the same tools over Streamable HTTP at `/mcp`:
+
+```bash
+banyan web --urls http://localhost:5180
+codex mcp add banyan-lite --url http://localhost:5180/mcp
+```
+
+This path bridges directly to Banyan's native memory store. If the web process is
+started with `--nid-auth writes-required` or `--nid-auth all-required`, `/mcp`
+participates in the same NID middleware as the native HTTP APIs.
+
 ---
 
 ## CLI options

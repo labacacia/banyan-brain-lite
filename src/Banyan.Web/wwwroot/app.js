@@ -23,7 +23,7 @@ function setStatus(text, kind = "") {
 
 // ── Global auth state ─────────────────────────────────────────────────────
 // Populated by the auth pill boot; other tabs read it to gate their UI.
-const auth = { wired: false, loggedIn: false, username: null, roles: [] };
+const auth = { wired: false, setupRequired: false, loggedIn: false, username: null, roles: [] };
 
 function loginPromptHtml(msg) {
   return `<div class="card login-prompt">
@@ -36,6 +36,7 @@ function tabSwitch(name) {
   $$(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === name));
   $$(".panel").forEach(p => p.classList.toggle("active", p.id === "tab-" + name));
   if (name === "agents") loadAgents();
+  if (name === "ca")      loadCaServer();
   if (name === "about")  loadAbout();
 }
 $$(".tab").forEach(t => t.addEventListener("click", () => tabSwitch(t.dataset.tab)));
@@ -250,10 +251,13 @@ async function loadAgents() {
       <tr>
         <td class="mono small">${esc(r.nid)}</td>
         <td class="mono small">${esc(r.serial)}</td>
-        <td>${esc(r.entityType)}</td>
+        <td>${esc(r.displayName || r.entityType)}${r.displayName ? ` <span class="badge">${esc(r.entityType)}</span>` : ""}</td>
         <td class="muted small">${new Date(r.issuedAt).toLocaleString()}</td>
-        <td><span class="status-pill ${esc(r.status)}">${esc(r.status)}${r.revokeReason ? ": " + esc(r.revokeReason) : ""}</span></td>
-        <td>${r.status === "active" ? `<button class="ghost danger" data-revoke="${esc(r.nid)}">revoke</button>` : ""}</td>
+        <td>
+          <span class="status-pill ${esc(r.status)}">${esc(r.status)}${r.revokeReason ? ": " + esc(r.revokeReason) : ""}</span>
+          ${r.autoManaged ? `<span class="badge">local</span>` : ""}
+        </td>
+        <td>${r.status === "active" && !r.autoManaged ? `<button class="ghost danger" data-revoke="${esc(r.nid)}">revoke</button>` : ""}</td>
       </tr>`).join("");
     $$("[data-revoke]").forEach(b => b.addEventListener("click", () => revoke(b.dataset.revoke)));
   } catch (err) {
@@ -271,6 +275,74 @@ async function revoke(nid) {
   try { await api(`/api/agents/${encodeURIComponent(nid)}/revoke`, { method: "POST", body: { reason } }); loadAgents(); }
   catch (err) { alert("Revoke failed: " + err.message); }
 }
+
+// ── CA Server ─────────────────────────────────────────────────────────────
+let caServerType = "embedded";
+
+function setCaServerType(type) {
+  caServerType = type;
+  $$("#ca-server-mode .seg-btn").forEach(b => b.classList.toggle("active", b.dataset.caType === type));
+  $("#ca-external-row").hidden = type !== "external";
+}
+
+$$("#ca-server-mode .seg-btn").forEach(b => {
+  b.addEventListener("click", () => setCaServerType(b.dataset.caType));
+});
+
+async function loadCaServer() {
+  const result = $("#ca-server-result");
+  try {
+    const cfg = await api("/api/ca/server");
+    setCaServerType(cfg.type || "embedded");
+    $("#ca-server-address").value = cfg.address || "";
+    $("#ca-server-dl").innerHTML = `
+      <dt>type</dt><dd>${esc(cfg.type || "embedded")}</dd>
+      <dt>address</dt><dd class="mono small">${esc(cfg.address || "local embedded CA")}</dd>
+      <dt>CA NID</dt><dd class="mono small">${esc(cfg.caNid || "—")}</dd>
+      <dt>CA pub key</dt><dd class="mono small">${esc(cfg.caPubKey || "—")}</dd>
+      <dt>runtime</dt><dd>${cfg.runtimeActive ? "<span class='status-pill active'>active</span>" : "<span class='status-pill expired'>restart required</span>"}</dd>`;
+    result.textContent = "";
+  } catch (err) {
+    $("#ca-server-dl").innerHTML = `<dt>status</dt><dd class="muted">${esc(err.data?.error || err.message)}</dd>`;
+    result.innerHTML = `<span style="color:var(--bad)">Could not load CA server settings.</span>`;
+  }
+}
+
+async function testCaServer() {
+  const result = $("#ca-server-result");
+  result.textContent = "Testing...";
+  try {
+    const probe = await api("/api/ca/server/test", {
+      method: "POST",
+      body: { type: caServerType, address: $("#ca-server-address").value.trim() || null },
+    });
+    result.innerHTML = `<span style="color:var(--good)">${esc(probe.message || "OK")}</span>${probe.caNid ? ` <code>${esc(probe.caNid)}</code>` : ""}`;
+    return probe;
+  } catch (err) {
+    const msg = err.data?.message || err.data?.probe?.message || err.data?.error || err.message;
+    result.innerHTML = `<span style="color:var(--bad)">Test failed: ${esc(msg)}</span>`;
+    throw err;
+  }
+}
+
+$("#ca-test").addEventListener("click", () => testCaServer().catch(() => {}));
+
+$("#ca-save").addEventListener("click", async () => {
+  const result = $("#ca-server-result");
+  result.textContent = "Applying...";
+  try {
+    const saved = await api("/api/ca/server", {
+      method: "PUT",
+      body: { type: caServerType, address: $("#ca-server-address").value.trim() || null },
+    });
+    const restart = saved.restartRequired ? " Restart the web UI for runtime auth to use this CA." : "";
+    result.innerHTML = `<span style="color:var(--good)">Saved.</span>${restart}`;
+    await loadCaServer();
+  } catch (err) {
+    const msg = err.data?.probe?.message || err.data?.message || err.data?.error || err.message;
+    result.innerHTML = `<span style="color:var(--bad)">Apply failed: ${esc(msg)}</span>`;
+  }
+});
 
 // ── About ─────────────────────────────────────────────────────────────────
 async function loadAbout() {
@@ -444,6 +516,17 @@ async function loadAbout() {
   if (!pill || !signin) return;
 
   try {
+    const setup = await fetch('/api/setup/status', { credentials: 'same-origin' });
+    if (setup.ok) {
+      auth.wired = true;
+      const status = await setup.json();
+      auth.setupRequired = !!status.setupRequired;
+      if (auth.setupRequired) {
+        location.replace('/setup.html');
+        return;
+      }
+    }
+
     const r = await fetch('/api/auth/me', { credentials: 'same-origin' });
     if (!r.ok) return;               // identity not wired — leave header bare, auth stays {wired:false}
     auth.wired = true;

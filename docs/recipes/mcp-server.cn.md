@@ -74,6 +74,19 @@ claude mcp add banyan -- banyan mcp
 }
 ```
 
+### 5. 通过 Web MCP 接入 Codex
+
+`banyan web` 也会在 `/mcp` 用 Streamable HTTP 暴露同一套工具：
+
+```bash
+banyan web --urls http://localhost:5180
+codex mcp add banyan-lite --url http://localhost:5180/mcp
+```
+
+这条路径会直接桥接到 Banyan 原生 memory store。如果 Web 进程用
+`--nid-auth writes-required` 或 `--nid-auth all-required` 启动，`/mcp`
+也会走和原生 HTTP API 相同的 NID middleware。
+
 ---
 
 ## CLI 选项

@@ -2,7 +2,8 @@ namespace Banyan.Web;
 
 /// <summary>
 /// Configuration for the demo web app. All paths support a leading <c>~</c>.
-/// CA passphrase comes from <c>BANYAN_NIP_CA_PASSPHRASE</c> at startup; not stored here.
+/// CA passphrase comes from <c>BANYAN_NIP_CA_PASSPHRASE</c> at startup, or from a
+/// local Lite-only secret file when the embedded CA is auto-initialised.
 /// </summary>
 public sealed class WebOptions
 {
@@ -10,13 +11,18 @@ public sealed class WebOptions
     public string  MemoryDbPath   { get; set; } = "~/.banyan/memory.db";
     public string  NipCaDbPath    { get; set; } = "~/.banyan/nipca.db";
     public string  NipCaKeyPath   { get; set; } = "~/.banyan/nipca-key.pem";
+    public string  NipCaPassphrasePath { get; set; } = "~/.banyan/nipca-passphrase";
     public string  CaNid          { get; set; } = "urn:nps:ca:local.banyan:root";
+    public CaServerMode CaServerType { get; set; } = CaServerMode.Embedded;
+    public string? ExternalCaServerAddress { get; set; }
     public string  TokensCachePath{ get; set; } = "~/.banyan/tokens.json";
     public bool    OpenCa         { get; set; } = true;
+    public string  LocalAgentId   { get; set; } = "banyan-lite-local";
+    public string  LocalAgentProfilePath { get; set; } = "~/.banyan/agents/banyan-lite-local.json";
+    public string  LocalAgentBrandPath { get; set; } = "~/.banyan/agents/banyan-lite-local-brand.json";
 
     // ── Human identity (OLS-backed OIDC + JWT) ──────────────────────────────────────
-    // Enabled only when both files exist (created by `banyan keygen` + `banyan init`).
-    // When disabled the web app runs without admin login — a zero-config demo posture.
+    // The web app creates these on first launch when missing, then forces browser admin setup.
     public string  IdentityDbPath         { get; set; } = "~/.banyan/identity.db";
     public string  IdentitySigningKeyPath { get; set; } = "~/.banyan/identity-signing.pem";
     public string  Audience               { get; set; } = "banyan";

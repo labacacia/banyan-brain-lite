@@ -15,7 +15,9 @@ public static class AgentEndpoints
     public sealed record AgentRow(
         string Nid, string Serial, string EntityType,
         string IssuedAt, string ExpiresAt,
-        string Status, string? RevokeReason);
+        string Status, string? RevokeReason,
+        bool AutoManaged,
+        string? DisplayName);
 
     public sealed record RevokeBody(string? Reason);
 
@@ -53,15 +55,23 @@ public static class AgentEndpoints
                 Note:             "Save the private key now — it will not be shown again."));
         });
 
-        g.MapGet("/", async (EmbeddedNipCa ca, bool? revokedOnly) =>
+        g.MapGet("/", async (HttpContext ctx, EmbeddedNipCa ca, bool? revokedOnly) =>
         {
+            var localAgent = ctx.RequestServices.GetService<LocalAgentIdentity>();
+            var brands = ctx.RequestServices.GetService<McpClientBrandRegistry>();
             var rows = await ca.ListAsync(revokedOnly ?? false);
             var now  = DateTime.UtcNow;
-            var dto  = rows.Select(r => new AgentRow(
-                r.Nid, r.Serial, r.EntityType,
-                r.IssuedAt.ToString("O"), r.ExpiresAt.ToString("O"),
-                r.RevokedAt.HasValue ? "revoked" : (r.ExpiresAt < now ? "expired" : "active"),
-                r.RevokeReason)).ToArray();
+            var dto  = rows.Select(r =>
+            {
+                var autoManaged = !string.IsNullOrEmpty(localAgent?.Nid) && r.Nid == localAgent.Nid;
+                return new AgentRow(
+                    r.Nid, r.Serial, r.EntityType,
+                    r.IssuedAt.ToString("O"), r.ExpiresAt.ToString("O"),
+                    r.RevokedAt.HasValue ? "revoked" : (r.ExpiresAt < now ? "expired" : "active"),
+                    r.RevokeReason,
+                    autoManaged,
+                    autoManaged ? brands?.LocalAgentDisplayName : null);
+            }).ToArray();
             return Results.Ok(dto);
         });
 

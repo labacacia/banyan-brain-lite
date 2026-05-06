@@ -45,14 +45,15 @@ and a parallel OIDC track for human operators on top of
   `/.schema`, `POST /api/memory/query` (NWP frames with `anchor_ref`,
   `token_est`, etc.).
 - **Web UI** — neon-glass, particle-network background, three-tab SPA
-  (Memory · Agents · About). Requires login when identity is configured; anonymous
-  memory reads/writes remain available via the API without a session.
+  (Memory · Agents · About). First launch forces an admin setup screen, then
+  login is required for agent management and CA operations.
 - **MCP Server** — `banyan mcp` runs as a Model Context Protocol stdio server,
-  giving Claude Desktop and Claude Code four first-class memory tools (`recall`,
-  `remember`, `update`, `forget`) with zero system-prompt boilerplate.
+  and `banyan web` also exposes Streamable HTTP MCP at `/mcp`. Both surfaces
+  share the same four first-class memory tools (`recall`, `remember`, `update`,
+  `forget`) with zero system-prompt boilerplate.
 - **Single-binary CLI** — `dotnet tool install -g Banyan.Cli` ships the entire
-  surface (`keygen`, `init`, `login`, `ca init`, `agent issue/verify/revoke`,
-  `embedder download`, `mcp`, `web`, `serve`).
+  surface (`keygen`, `init`, `reset-admin-pwd`, `login`, `ca init`,
+  `agent issue/verify/revoke`, `embedder download`, `mcp`, `web`, `serve`).
 
 ## Quick Start
 
@@ -63,40 +64,46 @@ dotnet tool install -g Banyan.Cli
 # 1. Pull the embedder model + sqlite-vec extension (~24 MB)
 banyan embedder download
 
-# 2. Bootstrap human-side identity (creates admin account and JWT signing key)
-banyan keygen
-banyan init
-
-# 3. Bootstrap the NID CA (skip if using an external CA server)
+# 2. Bootstrap the NID CA (skip if using an external CA server)
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
 banyan ca init
 
-# 4. Issue an agent certificate
+# 3. Issue an agent certificate
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 5. Start the web UI
+# 4. Start the web UI
 export BANYAN_EMBEDDER=onnx
 banyan web
 # → open http://localhost:5180
-# → redirects to /login.html when identity is configured (step 2)
-# → sign in with the admin account to access agent management and CA ops
-# → without step 2, memory reads/writes work anonymously via the API
+# → first launch redirects to /setup.html to create the admin account
+# → after setup, sign in to access agent management and CA ops
+
+# CLI-first bootstrap is also supported instead of browser setup:
+banyan init --admin-username admin --admin-password 'change-me-now'
+
+# Reset an existing admin password later:
+banyan reset-admin-pwd --admin-username admin
 
 # To connect to an external nip-ca-server instead of the embedded one:
 banyan web --no-ca \
   --trusted-issuer "urn:nps:ca:<ca-nid>=ed25519:<ca-pubkey>" \
   --ocsp-url http://your-ca-host:17435/ocsp
 
-# 6. Enable NID authentication (writes-required is the common production setting)
+# 5. Enable NID authentication (writes-required is the common production setting)
 banyan web   --nid-auth writes-required
 banyan serve --nid-auth writes-required
 # POST/PUT/DELETE/PATCH require Authorization: NID <base64(IdentFrame)>; reads stay open
 
-# 7. Or run as a pure NWP Memory Node (no web UI)
+# 6. Or run as a pure NWP Memory Node (no web UI)
 banyan serve --allow-anon
 # → POST /api/memory/query with QueryFrame body
 # → GET  /.nwm for the NeuralWebManifest
+
+# 7. Connect Codex to the native Web MCP endpoint
+codex mcp add banyan-lite --url http://localhost:5180/mcp
+# The /mcp endpoint bridges to Banyan's native memory store and participates in
+# the same NID middleware when --nid-auth is enabled.
 
 # 8. Remote CA: issue / verify / revoke from another host
 export BANYAN_CA_URL=https://your-ca-host:5180
