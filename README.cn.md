@@ -148,6 +148,8 @@ tests/
 | [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | **Recipe**：Claude Desktop / Claude Code MCP 接入 — `banyan mcp` 快速开始、工具参考、System Prompt |
 | [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | **Recipe**：通过 HTTP 把 agent（Claude / GPT / 自研）接到 Banyan |
 | [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite · Pro · Ent 三层范围矩阵 — NPS 合规 + 拓扑、本仓库范围 |
+| [`docs/architecture/pro-roadmap.cn.md`](./docs/architecture/pro-roadmap.cn.md) | Pro 层功能范围、阶段计划、依赖图 |
+| [`docs/architecture/adr-001-memory-pools.cn.md`](./docs/architecture/adr-001-memory-pools.cn.md) | ADR-001 — 共享记忆池（Pro）：NID-ACL 容器、系统池 0、跨池 merge 搜索 |
 | [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | 记忆 / 身份 / CA 的 SQLite 表结构、事件日志、FTS5、向量布局 |
 | [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 与 NPS-3（NCP / NWP / NIP）映射 — 我们消费什么、补齐什么 |
 | [`docs/architecture/identity.cn.md`](./docs/architecture/identity.cn.md) | 双轨身份模型：机器走 NID，人走 OLS / OIDC |

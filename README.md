@@ -158,6 +158,8 @@ tests/
 | [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | **Recipe**: Claude Desktop / Claude Code MCP integration — `banyan mcp` quick start, tool reference, system prompt |
 | [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | **Recipe**: connecting an agent (Claude / GPT / custom) to Banyan via HTTP |
 | [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix — NPS compliance + topology, scope of this repo |
+| [`docs/architecture/pro-roadmap.md`](./docs/architecture/pro-roadmap.md) | Pro tier feature scope, phase plan, dependency graph |
+| [`docs/architecture/adr-001-memory-pools.md`](./docs/architecture/adr-001-memory-pools.md) | ADR-001 — shared memory pools (Pro): NID-ACL'd containers, system pool 0, cross-pool merge search |
 | [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | Memory / identity / CA SQLite schemas, event log, FTS5, vector layout |
 | [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 (NCP / NWP / NIP) — what we consume, what we fill in |
 | [`docs/architecture/identity.md`](./docs/architecture/identity.md) | Dual-track identity model: NID for machines, OLS / OIDC for humans |

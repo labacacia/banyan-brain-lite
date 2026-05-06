@@ -105,6 +105,12 @@ So when we cut Pro, Lite stays exactly as-is and Pro layers on:
    on `namespace`)
 3. Add `NPS.NWP.ActionNode` middleware for tenant onboarding actions
 4. Switch the demo / Web UI from "single-org" to a tenant chooser
+5. Add **shared memory pools** — see [ADR-001](./adr-001-memory-pools.md)
+   for the design (NID-ACL'd containers, system pool 0, cross-pool merge
+   search)
+
+Full Pro phase plan with cost estimates and dependency graph:
+[`pro-roadmap.md`](./pro-roadmap.md).
 
 And Ent layers on top of Pro:
 
