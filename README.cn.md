@@ -1,174 +1,165 @@
 [English Version](./README.md) | 中文版
 
-# 🌳 Banyan
+# 🌳 Banyan Brain Lite
 
-> 给 AI agent 用的记忆节点 — 跑 [NPS](https://github.com/labacacia/NPS-Release) 协议、
-> SQLite 存储、完全可离线运行。
+> 版本 1.0.0 — 给 AI agent 用的离线优先记忆节点，基于 NPS wire protocol，SQLite 存储。
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
-[![Status](https://img.shields.io/badge/status-alpha-orange)]()
+[![Version](https://img.shields.io/badge/version-1.0.0-green)]()
+[![Status](https://img.shields.io/badge/status-stable-green)]()
 
-Banyan 是一个事件驱动的记忆存储 — agent 通过 `Remember()` / `Search()` /
-`Update()` / `Forget()` 与之交互。Wire 协议是
-[NPS-3](https://github.com/labacacia/NPS-Release)：Memory Node 走
-[`NPS.NWP`](https://www.nuget.org/packages/LabAcacia.NPS.NWP) 中间件，agent / node 身份是
-[NIP CA](https://github.com/labacacia/nip-ca-server) 颁发的 Ed25519 NID 证书；
-人机身份走 [OLS](https://www.nuget.org/packages/OLS.Root.Core) 实现的 OIDC。
+Banyan Brain Lite 是一个事件驱动的记忆存储。Agent 可以通过 `Remember()`、`Search()`、`Update()`、`Forget()` 与它交互。它通过 [`NPS.NWP`](https://www.nuget.org/packages/LabAcacia.NPS.NWP) 暴露 [NPS-3](https://github.com/labacacia/NPS-Release) Memory Node 表面，机器身份使用本地或远程 [NIP CA](https://github.com/labacacia/nip-ca-server) 签发的 Ed25519 NID，人类管理员身份走 OLS/OIDC。
+
+1.0.0 是 Lite 的第一个稳定版：单进程、单 SQLite 记忆库、内置 Mini-CA、Web UI、CLI、MCP Server、混合检索和 NID 鉴权都已经进入可发布状态。
 
 ---
 
-## 特性
+## 1.0.0 包含什么
 
-- **混合检索** — BM25 (FTS5) + ONNX 向量 + RRF 融合。向量索引在
-  [sqlite-vec](https://github.com/asg017/sqlite-vec) 加载时走 ANN，否则线扫 cosine。
-- **真语义 embedding** — `IEmbedder` 可插拔；默认 `bge-small-zh-v1.5`（多语言、
-  22 MB INT8 ONNX、384 维）；离线降级是 hashing n-gram。
-- **双轨身份模型**
-  - **Agent / Memory Node**：Ed25519 NID 证书，本地 `NipCaService` 或远程 nip-ca-server
-    都能签。Banyan 提供 NPS-3 §8 标准的 HTTP 路由 — 因为 `NPS.NIP` 这个 NuGet
-    目前还没把 routing 实装好，由我们补齐。
-  - **Operator / 管理员**：OLS 提供 OIDC + JWT，所有 Identity / OAuth store
-    我们都用 SQLite 自实装。配置了身份后，Web UI 会强制跳转登录页。
-- **Lite 自带真 NID 鉴权** — `Authorization: NID <base64(IdentFrame)>` 中间件，
-  三档可选（`anonymous-allowed` / `writes-required` / `all-required`）。
-  服务端校验过的 NID 会直接覆盖请求体里的 `agentNid`；CA 的吊销立刻生效。
-- **事件驱动记忆** — 每次 `Write/Update/Forget` 都追加到不可变日志；最新快照在
-  `memories_current`；即使 forget 之后，trace 仍然可审计。
-- **标准合规的 Memory Node** — `banyan serve` 挂载
-  `app.UseMemoryNode<TProvider>`，暴露 `/.nwm`（`NeuralWebManifest`）、
-  `/.schema`、`POST /api/memory/query`（带 `anchor_ref`、`token_est` 的 NWP 帧）。
-- **Web UI** — 霓虹玻璃 + 粒子网格背景，三 tab SPA（Memory · Agents · About）。
-  首次启动强制进入 admin setup；之后管理 agent 和 CA 都需要登录。
-- **MCP Server** — `banyan mcp` 作为 Model Context Protocol stdio 服务器运行；
-  `banyan web` 也会在 `/mcp` 暴露 Streamable HTTP MCP。两条路径共享同一套
-  一等公民记忆工具（`recall` / `remember` / `update` / `forget`），无需在
-  system prompt 里堆 API 文档。
-- **单二进制 CLI** — `dotnet tool install -g Banyan.Cli` 一键拿全功能
-  （`keygen` / `init` / `reset-admin-pwd` / `login` / `ca init` /
-  `agent issue/verify/revoke` / `embedder download` / `mcp` / `web` / `serve`）。
+- **混合检索** — BM25 / FTS5 + ONNX 向量 + RRF 融合；加载 `sqlite-vec` 时走 ANN，否则降级到内存 cosine。
+- **离线语义 embedding** — 可插拔 `IEmbedder`，支持 `bge-small-zh-v1.5` ONNX，也保留 hashing fallback。
+- **事件驱动记忆** — 不可变 write/update/forget 日志，加 current snapshot 表用于快速读取。
+- **NPS Memory Node 兼容** — `banyan serve` 通过 NWP Memory Node middleware 暴露 `/.nwm`、`/.schema`、`POST /api/memory/query`。
+- **NID 鉴权** — `Authorization: NID <base64(IdentFrame)>`，支持 `anonymous-allowed`、`writes-required`、`all-required` 三种模式。
+- **内置 NIP Mini-CA** — 本地签发、验证、撤销，以及 NPS-3 §8 兼容 HTTP 路由。
+- **远程 CA 支持** — Lite 节点可通过 `--trusted-issuer` 和 `--ocsp-url` 验证远程 `nip-ca-server` 签发的身份。
+- **管理员身份** — OLS/OIDC admin setup、login、JWT、SQLite-backed identity stores。
+- **Web UI** — 记忆搜索/写入、agent 与 CA 管理、首次 admin setup、登录保护。
+- **MCP Server** — `banyan mcp` 提供 stdio MCP；`banyan web` 在 `/mcp` 提供 Streamable HTTP MCP。
+- **单二进制 CLI** — .NET tool 形式安装，覆盖 memory、CA、agent、embedder、web、MCP、NWP 命令。
 
 ## 快速开始
 
 ```bash
-# 0. 安装
-dotnet tool install -g Banyan.Cli
+# 0. 安装 Banyan Brain Lite 1.0.0
+dotnet tool install -g Banyan.Cli --version 1.0.0
 
-# 1. 拉 embedder 模型 + sqlite-vec 扩展（约 24 MB）
+# 1. 拉 embedder 模型和 sqlite-vec 扩展（约 24 MB）
 banyan embedder download
 
-# 2. 初始化 NID CA（如果接外部 CA Server 则跳过）
+# 2. 初始化内置 NID CA
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
 banyan ca init
 
-# 3. 签发一个 agent 证书
+# 3. 通过 CLI 创建 admin；也可以稍后走浏览器首次 setup
+banyan init --admin-username admin --admin-password 'change-me-now'
+
+# 4. 签发 agent 证书
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 4. 启动 Web UI
+# 5. 启动 Web UI
 export BANYAN_EMBEDDER=onnx
 banyan web
-# 浏览器打开 http://localhost:5180
-# → 首次启动自动跳转到 /setup.html 创建 admin 账号
-# → setup 后登录即可管理 agent 和 CA
+# 打开 http://localhost:5180
+```
 
-# 也可以走 CLI-first 初始化，不用浏览器 setup：
-banyan init --admin-username admin --admin-password 'change-me-now'
+作为纯 NWP Memory Node 运行，不启动 Web UI：
 
-# 之后如需重置已有 admin 密码：
-banyan reset-admin-pwd --admin-username admin
+```bash
+banyan serve --allow-anon
+# GET  /.nwm
+# GET  /.schema
+# POST /api/memory/query
+```
 
-# 如需接外部 nip-ca-server 而不用内置 CA：
+要求写操作必须带 NID 鉴权：
+
+```bash
+banyan web   --nid-auth writes-required
+banyan serve --nid-auth writes-required
+```
+
+验证远程 CA 签发的证书，而不是使用内置 CA：
+
+```bash
 banyan web --no-ca \
   --trusted-issuer "urn:nps:ca:<ca-nid>=ed25519:<ca-pubkey>" \
   --ocsp-url http://your-ca-host:17435/ocsp
+```
 
-# 5. 打开 NID 鉴权（writes-required 是常见生产档）
-banyan web   --nid-auth writes-required
-banyan serve --nid-auth writes-required
-# POST/PUT/DELETE/PATCH 都要带 Authorization: NID <base64(IdentFrame)>，读保持公开
+把 Codex 接到 Banyan 原生 Web MCP endpoint：
 
-# 6. 或者起一个纯 NWP Memory Node（无 Web UI）
-banyan serve --allow-anon
-# POST /api/memory/query 带 QueryFrame body
-# GET  /.nwm 看 NeuralWebManifest
-
-# 7. 让 Codex 连接 Web 原生 MCP endpoint
+```bash
 codex mcp add banyan-lite --url http://localhost:5180/mcp
-# /mcp 会桥接到 Banyan 原生 memory store；打开 --nid-auth 时也走同一套 NID middleware。
-
-# 8. 在另一台主机：通过远端 CA issue / verify / revoke
-export BANYAN_CA_URL=https://your-ca-host:5180
-banyan agent issue --id offsite-agent --cap memory.read --remote $BANYAN_CA_URL
-banyan agent verify urn:nps:agent:.../offsite-agent --remote $BANYAN_CA_URL
 ```
 
 ## 当 agent 持久记忆用
-
-如果你是 agent 作者（Claude / GPT / 自研助手），把 Banyan 接进去：
 
 ```python
 import requests
 
 def recall(query: str, user_id: str, threshold: float = 0.50) -> list[str]:
-    r = requests.get("http://banyan-host:5180/api/memory/search",
-                     params={"q": query, "mode": "hybrid", "k": 5,
-                             "namespace": f"user-{user_id}"}, timeout=2)
-    return [h["content"] for h in r.json()["hits"] if h["score"] > threshold]
+    r = requests.get(
+        "http://banyan-host:5180/api/memory/search",
+        params={"q": query, "mode": "hybrid", "k": 5, "namespace": f"user-{user_id}"},
+        timeout=2,
+    )
+    return [hit["content"] for hit in r.json()["hits"] if hit["score"] > threshold]
 
-def remember(fact: str, user_id: str, agent_nid: str | None = None):
-    requests.post("http://banyan-host:5180/api/memory", json={
-        "content": fact, "namespace": f"user-{user_id}", "agentNid": agent_nid,
-    }, timeout=2)
+def remember(fact: str, user_id: str, agent_nid: str | None = None) -> None:
+    requests.post(
+        "http://banyan-host:5180/api/memory",
+        json={"content": fact, "namespace": f"user-{user_id}", "agentNid": agent_nid},
+        timeout=2,
+    )
 ```
 
-每轮对话开始前 recall 一次，写入只在显式信号（用户说"记住 X"、纠正你、定下决策）。
-完整接入指南在 [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) —
-覆盖 namespace 设计、阈值经验、写入触发、NID 鉴权模式、失败恢复、反模式。
+推荐模式：每轮 agent 对话前 recall；只有在用户明确要求“记住这个”、纠正信息、给出长期偏好或确定决策时才写入。完整指南见 [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md)，覆盖 namespace 设计、阈值、写入触发、NID attest 模式、失败恢复和反模式。
 
 ## 项目结构
 
-```
+```text
 src/
-├── Banyan.Core         # IMemoryStore、IEmbedder 接口、请求/响应记录
-├── Banyan.Lite         # SqliteMemoryStore（BM25 + 余弦 + RRF + sqlite-vec ANN）
+├── Banyan.Core         # IMemoryStore、IEmbedder、请求/响应 records
+├── Banyan.Lite         # SQLite memory store、BM25、vector search、RRF
 ├── Banyan.Embedders    # HashingEmbedder、OnnxEmbedder、EmbedderFactory
-├── Banyan.Auth         # NID CA：EmbeddedNipCa / SqliteNipCaStore / RemoteNipCaClient
-├── Banyan.Identity     # OLS 驱动的人机身份（OIDC、JWT、RBAC），存 SQLite
-├── Banyan.Web          # ASP.NET Core Web UI + agents/memory/identity REST，
-│                         以及 NPS-3 §8 NIP CA HTTP 路由（补 NuGet 缺口）
-├── Banyan.Node         # banyan serve — 挂 NPS.NWP MemoryNodeMiddleware
-└── Banyan.Cli          # banyan dotnet tool
+├── Banyan.Auth         # 内置 NIP CA、SQLite CA store、RemoteNipCaClient
+├── Banyan.Identity     # 基于 SQLite 的 OLS/OIDC 人类身份
+├── Banyan.Web          # ASP.NET Core Web UI + memory/agent/identity/CA REST APIs
+├── Banyan.Mcp          # MCP tools 与 transport integration
+├── Banyan.Node         # NWP Memory Node host
+└── Banyan.Cli          # banyan .NET tool
 
 tests/
-├── Banyan.Core.Tests       (5)
-├── Banyan.Lite.Tests       (42，含 6 个 ONNX + 5 个 sqlite-vec)
-├── Banyan.Auth.Tests       (46，含 7 个 RemoteNipCaClient + 10 个 NID 中间件)
-├── Banyan.Identity.Tests   (43)
-└── Banyan.Node.Tests       (8)
+├── Banyan.Core.Tests
+├── Banyan.Lite.Tests
+├── Banyan.Auth.Tests
+├── Banyan.Identity.Tests
+└── Banyan.Node.Tests
 ```
 
 ## 文档
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | **Recipe**：Claude Desktop / Claude Code MCP 接入 — `banyan mcp` 快速开始、工具参考、System Prompt |
-| [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | **Recipe**：通过 HTTP 把 agent（Claude / GPT / 自研）接到 Banyan |
-| [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite · Pro · Ent 三层范围矩阵 — NPS 合规 + 拓扑、本仓库范围 |
-| [`docs/architecture/pro-roadmap.cn.md`](./docs/architecture/pro-roadmap.cn.md) | Pro 层功能范围、阶段计划、依赖图 |
-| [`docs/architecture/adr-001-memory-pools.cn.md`](./docs/architecture/adr-001-memory-pools.cn.md) | ADR-001 — 共享记忆池（Pro）：NID-ACL 容器、系统池 0、跨池 merge 搜索 |
-| [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | 记忆 / 身份 / CA 的 SQLite 表结构、事件日志、FTS5、向量布局 |
-| [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 与 NPS-3（NCP / NWP / NIP）映射 — 我们消费什么、补齐什么 |
-| [`docs/architecture/identity.cn.md`](./docs/architecture/identity.cn.md) | 双轨身份模型：机器走 NID，人走 OLS / OIDC |
-| [`docs/architecture/ols-surface-reference.cn.md`](./docs/architecture/ols-surface-reference.cn.md) | 反射出来的 `OLS.Root.*` API 表面（参考用） |
+| [`docs/release/1.0.0.cn.md`](./docs/release/1.0.0.cn.md) | Banyan Brain Lite 1.0.0 发布说明和运维检查清单 |
+| [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | Claude Desktop / Claude Code MCP 接入 |
+| [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | 通过 HTTP 把 agent 接到 Banyan |
+| [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite · Pro · Ent 版本矩阵和仓库范围 |
+| [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | SQLite memory、identity、CA 存储结构 |
+| [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 如何映射到 NPS-3 NCP / NWP / NIP |
+| [`docs/architecture/identity.cn.md`](./docs/architecture/identity.cn.md) | 双轨身份：机器走 NID，人走 OLS/OIDC |
+| [`docs/architecture/pro-roadmap.cn.md`](./docs/architecture/pro-roadmap.cn.md) | Pro 功能范围和依赖计划 |
+| [`docs/architecture/adr-001-memory-pools.cn.md`](./docs/architecture/adr-001-memory-pools.cn.md) | ADR-001 共享记忆池设计 |
+
+## 版本边界
+
+本仓库是 **Lite** 发行版。Lite 采用 Apache-2.0，单节点、SQLite-backed，适合本地 agent memory、小型部署、demo、嵌入式和离线工作负载。
+
+商业版本单独维护：
+
+- `innolotus/banyan-brain-pro` — Pro 多租户版本，包含外置 CA、tenant scope enforcement、共享记忆池。
+- `innolotus/banyan-brain-ent` — 企业 AaaS L3 版本，包含 Anchor Node ingress、Vector Proxy、Bridge Node adapters、编排、审计和 quorum 能力。
 
 ## 站在巨人肩膀上
 
-- [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/nps) — Neural Web Protocol 栈
-- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — NIP CA Server（Docker + Postgres）
-- [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn/ols-root) — 人机身份栈
-- [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + [Microsoft.ML.Tokenizers](https://www.nuget.org/packages/Microsoft.ML.Tokenizers) — ONNX 推理 + BERT WordPiece
-- [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — 多语言句子向量
-- [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite ANN 向量索引
+- [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/NPS-Release) — Neural Protocol Suite 协议栈
+- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — 远程 NIP CA server
+- [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — 人类身份栈
+- [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + Microsoft.ML.Tokenizers — ONNX 推理和 WordPiece tokenization
+- [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — 多语言句向量
+- [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite vector index
 
 ## 许可证
 
