@@ -38,6 +38,11 @@ project.assets.json
 .banyan/
 ~/.banyan/
 
+# ── Local AI assistant / scratch state ──────────────────────────────────────
+.claude/
+log/
+todo
+
 # ── ML assets — these are fetched at runtime via `banyan embedder download` ─
 *.onnx
 vec0.so
