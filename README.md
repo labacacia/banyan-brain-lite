@@ -1,185 +1,165 @@
 English | [中文版](./README.cn.md)
 
-# 🌳 Banyan
+# 🌳 Banyan Brain Lite
 
-> A memory node for AI agents — speaks the [NPS](https://github.com/labacacia/NPS-Release)
-> wire protocol, stores everything in SQLite, runs entirely offline.
+> Version 1.0.0 — an offline-first memory node for AI agents, built on the NPS wire protocol and backed by SQLite.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
-[![Status](https://img.shields.io/badge/status-alpha-orange)]()
+[![Version](https://img.shields.io/badge/version-1.0.0-green)]()
+[![Status](https://img.shields.io/badge/status-stable-green)]()
 
-Banyan is an event-sourced memory store that agents can `Remember()`,
-`Search()`, `Update()` and `Forget()` against. The wire protocol is
-[NPS-3](https://github.com/labacacia/NPS-Release) — Neural Web Protocol
-Memory-Node middleware via [`NPS.NWP`](https://www.nuget.org/packages/LabAcacia.NPS.NWP),
-identity via Ed25519 NIDs from the [NIP CA](https://github.com/labacacia/nip-ca-server),
-and a parallel OIDC track for human operators on top of
-[OLS](https://www.nuget.org/packages/OLS.Root.Core).
+Banyan Brain Lite is an event-sourced memory store that agents can `Remember()`, `Search()`, `Update()`, and `Forget()` against. It speaks the [NPS-3](https://github.com/labacacia/NPS-Release) Memory Node surface through [`NPS.NWP`](https://www.nuget.org/packages/LabAcacia.NPS.NWP), uses Ed25519 NIDs issued by a local or remote [NIP CA](https://github.com/labacacia/nip-ca-server), and provides an OLS/OIDC operator identity track for human administrators.
+
+The 1.0.0 release is the first stable Lite cut: one process, one SQLite-backed memory store, embedded Mini-CA, web UI, CLI, MCP server, hybrid retrieval, and NID authentication.
 
 ---
 
-## Features
+## What ships in 1.0.0
 
-- **Hybrid retrieval** — BM25 (FTS5) + ONNX vector search + RRF fusion. Vector index
-  uses [sqlite-vec](https://github.com/asg017/sqlite-vec) ANN when available, falls
-  back to in-memory cosine.
-- **Real semantic embeddings** — pluggable `IEmbedder`; ships with
-  `bge-small-zh-v1.5` (multilingual, 22 MB INT8 ONNX, 384-dim) plus an offline
-  hashing fallback.
-- **Dual-track identity**
-  - **Agents / Memory Nodes**: Ed25519 NID certificates issued by an embedded
-    `NipCaService` or a remote nip-ca-server. Banyan ships the NPS-3 §8 conformant
-    HTTP routes that the `NPS.NIP` NuGet hasn't shipped yet.
-  - **Operators / Admins**: OIDC + JWT via OLS, with a SQLite-backed implementation
-    of every Identity / OAuth store interface. The web UI enforces login via redirect
-    when identity is configured.
-- **Real NID authentication in Lite** — `Authorization: NID <base64(IdentFrame)>`
-  middleware with three modes (`anonymous-allowed` / `writes-required` /
-  `all-required`). Server-side verified NID overrides any client-supplied
-  `agentNid`; revocations from the CA take effect immediately.
-- **Event-sourced memory** — every `Write/Update/Forget` appends to an immutable
-  log; the latest snapshot lives in `memories_current`; trace stays auditable
-  even after forget.
-- **Standards-compliant Memory Node** — `banyan serve` mounts
-  `app.UseMemoryNode<TProvider>`, exposes `/.nwm` (`NeuralWebManifest`),
-  `/.schema`, `POST /api/memory/query` (NWP frames with `anchor_ref`,
-  `token_est`, etc.).
-- **Web UI** — neon-glass, particle-network background, three-tab SPA
-  (Memory · Agents · About). First launch forces an admin setup screen, then
-  login is required for agent management and CA operations.
-- **MCP Server** — `banyan mcp` runs as a Model Context Protocol stdio server,
-  and `banyan web` also exposes Streamable HTTP MCP at `/mcp`. Both surfaces
-  share the same four first-class memory tools (`recall`, `remember`, `update`,
-  `forget`) with zero system-prompt boilerplate.
-- **Single-binary CLI** — `dotnet tool install -g Banyan.Cli` ships the entire
-  surface (`keygen`, `init`, `reset-admin-pwd`, `login`, `ca init`,
-  `agent issue/verify/revoke`, `embedder download`, `mcp`, `web`, `serve`).
+- **Hybrid retrieval** — BM25 / FTS5 + ONNX vector search + RRF fusion. When `sqlite-vec` is available, vector search uses ANN; otherwise it falls back to in-memory cosine.
+- **Offline semantic embeddings** — pluggable `IEmbedder`, `bge-small-zh-v1.5` ONNX support, and a hashing fallback for fully offline operation.
+- **Event-sourced memory** — immutable write/update/forget log plus a current snapshot table for fast reads.
+- **NPS Memory Node compatibility** — `banyan serve` exposes `/.nwm`, `/.schema`, and `POST /api/memory/query` through the NWP Memory Node middleware.
+- **NID authentication** — `Authorization: NID <base64(IdentFrame)>`, with `anonymous-allowed`, `writes-required`, and `all-required` modes.
+- **Embedded NIP Mini-CA** — local certificate issuance, verification, revocation, and NPS-3 §8 compatible HTTP routes.
+- **Remote CA support** — a Lite node can verify identities issued by a remote `nip-ca-server` using `--trusted-issuer` and `--ocsp-url`.
+- **Operator identity** — OLS/OIDC-backed admin setup, login, JWT, and SQLite-backed identity stores.
+- **Web UI** — memory search/write UI, agent and CA operations, first-run admin setup, and login enforcement.
+- **MCP server** — stdio MCP via `banyan mcp` and Streamable HTTP MCP at `/mcp` when running `banyan web`.
+- **Single-binary CLI** — installable as a .NET tool with memory, CA, agent, embedder, web, MCP, and NWP commands.
 
-## Quick Start
+## Quick start
 
 ```bash
-# 0. Install
-dotnet tool install -g Banyan.Cli
+# 0. Install Banyan Brain Lite 1.0.0
+dotnet tool install -g Banyan.Cli --version 1.0.0
 
-# 1. Pull the embedder model + sqlite-vec extension (~24 MB)
+# 1. Pull the embedder model and sqlite-vec extension (~24 MB)
 banyan embedder download
 
-# 2. Bootstrap the NID CA (skip if using an external CA server)
+# 2. Bootstrap the embedded NID CA
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
 banyan ca init
 
-# 3. Issue an agent certificate
+# 3. Create an admin account from CLI, or use the browser setup flow later
+banyan init --admin-username admin --admin-password 'change-me-now'
+
+# 4. Issue an agent certificate
 banyan agent issue --id summarizer-01 --cap memory.read,memory.write \
   --key-out ~/.banyan/agents/summarizer-01.key
 
-# 4. Start the web UI
+# 5. Start the Web UI
 export BANYAN_EMBEDDER=onnx
 banyan web
-# → open http://localhost:5180
-# → first launch redirects to /setup.html to create the admin account
-# → after setup, sign in to access agent management and CA ops
+# Open http://localhost:5180
+```
 
-# CLI-first bootstrap is also supported instead of browser setup:
-banyan init --admin-username admin --admin-password 'change-me-now'
+To run as a pure NWP Memory Node without the web UI:
 
-# Reset an existing admin password later:
-banyan reset-admin-pwd --admin-username admin
+```bash
+banyan serve --allow-anon
+# GET  /.nwm
+# GET  /.schema
+# POST /api/memory/query
+```
 
-# To connect to an external nip-ca-server instead of the embedded one:
+To require NID authentication for writes:
+
+```bash
+banyan web   --nid-auth writes-required
+banyan serve --nid-auth writes-required
+```
+
+To verify certificates from a remote CA instead of using the embedded CA:
+
+```bash
 banyan web --no-ca \
   --trusted-issuer "urn:nps:ca:<ca-nid>=ed25519:<ca-pubkey>" \
   --ocsp-url http://your-ca-host:17435/ocsp
+```
 
-# 5. Enable NID authentication (writes-required is the common production setting)
-banyan web   --nid-auth writes-required
-banyan serve --nid-auth writes-required
-# POST/PUT/DELETE/PATCH require Authorization: NID <base64(IdentFrame)>; reads stay open
+To connect Codex to Banyan's native Web MCP endpoint:
 
-# 6. Or run as a pure NWP Memory Node (no web UI)
-banyan serve --allow-anon
-# → POST /api/memory/query with QueryFrame body
-# → GET  /.nwm for the NeuralWebManifest
-
-# 7. Connect Codex to the native Web MCP endpoint
+```bash
 codex mcp add banyan-lite --url http://localhost:5180/mcp
-# The /mcp endpoint bridges to Banyan's native memory store and participates in
-# the same NID middleware when --nid-auth is enabled.
-
-# 8. Remote CA: issue / verify / revoke from another host
-export BANYAN_CA_URL=https://your-ca-host:5180
-banyan agent issue --id offsite-agent --cap memory.read --remote $BANYAN_CA_URL
-banyan agent verify urn:nps:agent:.../offsite-agent --remote $BANYAN_CA_URL
 ```
 
 ## Use as agent memory
-
-If you're an agent author plugging Banyan into Claude / GPT / your own assistant:
 
 ```python
 import requests
 
 def recall(query: str, user_id: str, threshold: float = 0.50) -> list[str]:
-    r = requests.get("http://banyan-host:5180/api/memory/search",
-                     params={"q": query, "mode": "hybrid", "k": 5,
-                             "namespace": f"user-{user_id}"}, timeout=2)
-    return [h["content"] for h in r.json()["hits"] if h["score"] > threshold]
+    r = requests.get(
+        "http://banyan-host:5180/api/memory/search",
+        params={"q": query, "mode": "hybrid", "k": 5, "namespace": f"user-{user_id}"},
+        timeout=2,
+    )
+    return [hit["content"] for hit in r.json()["hits"] if hit["score"] > threshold]
 
-def remember(fact: str, user_id: str, agent_nid: str | None = None):
-    requests.post("http://banyan-host:5180/api/memory", json={
-        "content": fact, "namespace": f"user-{user_id}", "agentNid": agent_nid,
-    }, timeout=2)
+def remember(fact: str, user_id: str, agent_nid: str | None = None) -> None:
+    requests.post(
+        "http://banyan-host:5180/api/memory",
+        json={"content": fact, "namespace": f"user-{user_id}", "agentNid": agent_nid},
+        timeout=2,
+    )
 ```
 
-Recall before every turn, write only on explicit signals (the user says
-*"remember X"*, corrects you, or pins a decision). Full integration guide in
-[`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) — covers
-namespace design, threshold heuristics, write triggers, NID-attested mode,
-failure recovery, anti-patterns.
+Recommended pattern: recall before each agent turn, and write only on explicit signals such as "remember this", user corrections, durable preferences, or decisions. See [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) for namespace design, thresholds, write triggers, NID-attested mode, failure recovery, and anti-patterns.
 
-## Project Structure
+## Project structure
 
-```
+```text
 src/
 ├── Banyan.Core         # IMemoryStore, IEmbedder, request/response records
-├── Banyan.Lite         # SqliteMemoryStore (BM25 + cosine + RRF + sqlite-vec ANN)
+├── Banyan.Lite         # SQLite memory store, BM25, vector search, RRF
 ├── Banyan.Embedders    # HashingEmbedder, OnnxEmbedder, EmbedderFactory
-├── Banyan.Auth         # NID CA: EmbeddedNipCa, SqliteNipCaStore, RemoteNipCaClient
-├── Banyan.Identity     # OLS-backed human identity (OIDC, JWT, RBAC) on SQLite
-├── Banyan.Web          # ASP.NET Core web UI + agents/memory/identity REST,
-│                         + NPS-3 §8 NIP CA HTTP routes (gap-fill for the NuGet)
-├── Banyan.Node         # banyan serve — NPS.NWP MemoryNodeMiddleware host
-└── Banyan.Cli          # `banyan` dotnet tool
+├── Banyan.Auth         # Embedded NIP CA, SQLite CA store, RemoteNipCaClient
+├── Banyan.Identity     # OLS/OIDC human identity on SQLite
+├── Banyan.Web          # ASP.NET Core Web UI + memory/agent/identity/CA REST APIs
+├── Banyan.Mcp          # MCP tools and transport integration
+├── Banyan.Node         # NWP Memory Node host
+└── Banyan.Cli          # banyan .NET tool
 
 tests/
-├── Banyan.Core.Tests       (5)
-├── Banyan.Lite.Tests       (42, incl. 6 ONNX + 5 sqlite-vec)
-├── Banyan.Auth.Tests       (46, incl. 7 RemoteNipCaClient + 10 NID middleware)
-├── Banyan.Identity.Tests   (43)
-└── Banyan.Node.Tests       (8)
+├── Banyan.Core.Tests
+├── Banyan.Lite.Tests
+├── Banyan.Auth.Tests
+├── Banyan.Identity.Tests
+└── Banyan.Node.Tests
 ```
 
 ## Documentation
 
 | Document | Description |
 |---|---|
-| [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | **Recipe**: Claude Desktop / Claude Code MCP integration — `banyan mcp` quick start, tool reference, system prompt |
-| [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | **Recipe**: connecting an agent (Claude / GPT / custom) to Banyan via HTTP |
-| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix — NPS compliance + topology, scope of this repo |
-| [`docs/architecture/pro-roadmap.md`](./docs/architecture/pro-roadmap.md) | Pro tier feature scope, phase plan, dependency graph |
-| [`docs/architecture/adr-001-memory-pools.md`](./docs/architecture/adr-001-memory-pools.md) | ADR-001 — shared memory pools (Pro): NID-ACL'd containers, system pool 0, cross-pool merge search |
-| [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | Memory / identity / CA SQLite schemas, event log, FTS5, vector layout |
-| [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 (NCP / NWP / NIP) — what we consume, what we fill in |
-| [`docs/architecture/identity.md`](./docs/architecture/identity.md) | Dual-track identity model: NID for machines, OLS / OIDC for humans |
-| [`docs/architecture/ols-surface-reference.md`](./docs/architecture/ols-surface-reference.md) | Reflected `OLS.Root.*` API surface (informational) |
+| [`docs/release/1.0.0.md`](./docs/release/1.0.0.md) | Release notes and operational checklist for Banyan Brain Lite 1.0.0 |
+| [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | Claude Desktop / Claude Code MCP integration |
+| [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | Connecting an agent to Banyan through HTTP |
+| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix and repo scope |
+| [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | SQLite memory, identity, and CA storage layout |
+| [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 NCP / NWP / NIP |
+| [`docs/architecture/identity.md`](./docs/architecture/identity.md) | Dual-track identity: NID for machines, OLS/OIDC for humans |
+| [`docs/architecture/pro-roadmap.md`](./docs/architecture/pro-roadmap.md) | Pro feature scope and dependency plan |
+| [`docs/architecture/adr-001-memory-pools.md`](./docs/architecture/adr-001-memory-pools.md) | ADR-001 shared memory pools design |
 
-## Built On
+## Edition boundary
 
-- [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/nps) — Neural Web Protocol stack
-- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — NIP CA server (Docker + Postgres)
-- [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn/ols-root) — human-side identity stack
-- [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + [Microsoft.ML.Tokenizers](https://www.nuget.org/packages/Microsoft.ML.Tokenizers) — ONNX inference + BERT WordPiece
+This repository is the **Lite** distribution. Lite is Apache-2.0, single-node, SQLite-backed, and suitable for local agent memory, small deployments, demos, and embedded/offline workloads.
+
+Commercial tiers live separately:
+
+- `innolotus/banyan-brain-pro` — multi-tenant Pro tier with external CA, tenant scope enforcement, and shared memory pools.
+- `innolotus/banyan-brain-ent` — enterprise AaaS L3 tier with Anchor Node ingress, Vector Proxy, Bridge Node adapters, orchestration, and audit/quorum capabilities.
+
+## Built on
+
+- [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/NPS-Release) — Neural Protocol Suite stack
+- [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — remote NIP CA server
+- [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — human-side identity stack
+- [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + Microsoft.ML.Tokenizers — ONNX inference and WordPiece tokenization
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — multilingual sentence embeddings
-- [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite ANN vector index
+- [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite vector index
 
 ## License
 
