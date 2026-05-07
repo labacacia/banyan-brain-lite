@@ -68,3 +68,7 @@ artifacts/
 .cache/
 *.log
 node_modules/
+
+# ── Local assistant/project memory ──────────────────────────────────────────
+.claude/
+log/todo/
