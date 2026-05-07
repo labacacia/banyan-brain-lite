@@ -100,6 +100,43 @@ public sealed class KnowledgePackTests
         Assert.DoesNotContain("PackId", json);
     }
 
+    [Fact]
+    public async Task Builder_BuildsPackEntriesFromSupportedFiles()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-pack-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "overview.md"), "# Product\nA useful product.");
+            await File.WriteAllTextAsync(Path.Combine(root, "pricing.json"), "{\"tier\":\"free\"}");
+            await File.WriteAllTextAsync(Path.Combine(root, "ignored.bin"), "ignored");
+
+            var result = await KnowledgePackBuilder.BuildFromPathAsync(
+                root,
+                new KnowledgePackBuildOptions
+                {
+                    PackId = "com.company-a.products",
+                    Name = "Company A Product Knowledge",
+                    Version = "2026.05"
+                });
+
+            Assert.Equal(2, result.Sources.Count);
+            Assert.Equal(2, result.Memories.Count);
+            Assert.Equal(2, result.Entries.Count);
+            Assert.Contains(result.Sources, static s => s.Path == "overview.md" && s.MediaType == "text/markdown");
+            Assert.Contains(result.Sources, static s => s.Path == "pricing.json" && s.MediaType == "application/json");
+            Assert.Contains(result.Entries, static e => e.Path == "sources/sources.jsonl");
+            Assert.Contains(result.Entries, static e => e.Path == "memories/records.jsonl");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static KnowledgePackManifest ValidManifest() => new()
     {
         PackId = "com.company-a.products",
