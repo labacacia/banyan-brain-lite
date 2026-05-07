@@ -91,6 +91,15 @@ static void PrintHelp()
                       --dry-run
           pack inspect PATH
                     Inspect a .banyanpack manifest
+          pack mount PATH
+                    Mount a .banyanpack into a namespace
+                      --namespace NS
+          pack list
+                    List mounted knowledge packs
+                      --namespace NS
+          pack unmount ID
+                    Unmount a pack id from a namespace
+                      --namespace NS
 
         Demo:
           web       Start the demo web UI (default: http://localhost:5180)

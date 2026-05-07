@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Banyan.Core.KnowledgePacks;
 
 namespace Banyan.Cli.Commands;
@@ -13,6 +14,9 @@ internal static class PackCommand
         {
             "build" => await BuildAsync(rest),
             "inspect" => await InspectAsync(rest),
+            "mount" => await MountAsync(rest),
+            "list" => await ListAsync(rest),
+            "unmount" => await UnmountAsync(rest),
             "--help" or "-h" or "help" => Help(),
             _ => Unknown(sub),
         };
@@ -128,6 +132,111 @@ internal static class PackCommand
         }
     }
 
+    private static async Task<int> MountAsync(string[] args)
+    {
+        var pack = FirstValue(args);
+        if (pack is null)
+        {
+            Console.Error.WriteLine("banyan pack mount: pack path is required.");
+            return 64;
+        }
+
+        var @namespace = CommandContext.GetOption(args, "--namespace");
+        if (string.IsNullOrWhiteSpace(@namespace))
+        {
+            Console.Error.WriteLine("banyan pack mount: --namespace NS is required.");
+            return 64;
+        }
+
+        try
+        {
+            var registry = OpenRegistry(args);
+            var result = await registry.MountAsync(
+                CommandContext.ExpandHome(pack),
+                @namespace,
+                CommandContext.GetOption(args, "--mounted-by"));
+
+            Console.WriteLine(result.Created ? "mounted:      created" : "mounted:      already exists");
+            PrintMountRecord(result.Record);
+            return 0;
+        }
+        catch (Exception ex) when (ex is KnowledgePackValidationException
+                                   or IOException
+                                   or UnauthorizedAccessException
+                                   or InvalidDataException
+                                   or ArgumentException)
+        {
+            Console.Error.WriteLine($"banyan pack mount: {ex.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> ListAsync(string[] args)
+    {
+        try
+        {
+            var records = await OpenRegistry(args).ListAsync(CommandContext.GetOption(args, "--namespace"));
+            if (records.Count == 0)
+            {
+                Console.WriteLine("No mounted knowledge packs.");
+                return 0;
+            }
+
+            foreach (var record in records)
+            {
+                PrintMountRecord(record);
+                Console.WriteLine();
+            }
+
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or JsonException)
+        {
+            Console.Error.WriteLine($"banyan pack list: {ex.Message}");
+            return 2;
+        }
+    }
+
+    private static async Task<int> UnmountAsync(string[] args)
+    {
+        var packId = FirstValue(args);
+        if (packId is null)
+        {
+            Console.Error.WriteLine("banyan pack unmount: pack id is required.");
+            return 64;
+        }
+
+        var @namespace = CommandContext.GetOption(args, "--namespace");
+        if (string.IsNullOrWhiteSpace(@namespace))
+        {
+            Console.Error.WriteLine("banyan pack unmount: --namespace NS is required.");
+            return 64;
+        }
+
+        try
+        {
+            var removed = await OpenRegistry(args).UnmountAsync(
+                packId,
+                @namespace,
+                CommandContext.GetOption(args, "--version"));
+
+            if (!removed)
+            {
+                Console.Error.WriteLine("banyan pack unmount: no matching mount found.");
+                return 2;
+            }
+
+            Console.WriteLine($"unmounted:    {packId}");
+            Console.WriteLine($"namespace:    {@namespace}");
+            return 0;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException or JsonException)
+        {
+            Console.Error.WriteLine($"banyan pack unmount: {ex.Message}");
+            return 2;
+        }
+    }
+
     private static void PrintBuildSummary(KnowledgePackBuildResult result, string? outputPath)
     {
         Console.WriteLine($"pack_id:       {result.Manifest.PackId}");
@@ -140,6 +249,24 @@ internal static class PackCommand
             Console.WriteLine($"output:        {outputPath}");
         }
     }
+
+    private static void PrintMountRecord(KnowledgePackMountRecord record)
+    {
+        Console.WriteLine($"namespace:    {record.Namespace}");
+        Console.WriteLine($"pack_id:      {record.PackId}");
+        Console.WriteLine($"version:      {record.PackVersion}");
+        Console.WriteLine($"name:         {record.PackName}");
+        Console.WriteLine($"pack_type:    {record.PackType}");
+        Console.WriteLine($"enabled:      {record.Enabled}");
+        Console.WriteLine($"checksum:     {record.PackChecksum}");
+        Console.WriteLine($"pack_path:    {record.PackPath}");
+        Console.WriteLine($"mounted_at:   {record.MountedAt:O}");
+    }
+
+    private static FileKnowledgePackMountRegistry OpenRegistry(string[] args)
+        => new(CommandContext.ExpandHome(
+            CommandContext.GetOption(args, "--registry")
+            ?? "~/.banyan/knowledge-packs/mounts.json"));
 
     private static string? FirstValue(string[] args)
         => args.FirstOrDefault(static arg => !arg.StartsWith("-", StringComparison.Ordinal));
@@ -165,6 +292,17 @@ internal static class PackCommand
                              --target-scopes CSV    default: user,agent
                              --dry-run              print summary without writing
               inspect PATH Inspect a .banyanpack manifest
+              mount PATH   Mount a .banyanpack into a namespace
+                             --namespace NS         required
+                             --registry PATH        default: ~/.banyan/knowledge-packs/mounts.json
+                             --mounted-by ID
+              list         List mounted packs
+                             --namespace NS
+                             --registry PATH
+              unmount ID   Unmount a pack id from a namespace
+                             --namespace NS         required
+                             --version VERSION      optional
+                             --registry PATH
             """);
         return 0;
     }

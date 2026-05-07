@@ -137,6 +137,42 @@ public sealed class KnowledgePackTests
         }
     }
 
+    [Fact]
+    public async Task MountRegistry_MountListAndUnmountRoundTrip()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-mount-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var packPath = await CreatePackAsync(root);
+            var registryPath = Path.Combine(root, "mounts.json");
+            var registry = new FileKnowledgePackMountRegistry(registryPath);
+
+            var first = await registry.MountAsync(packPath, "user:alice", mountedBy: "test");
+            var second = await registry.MountAsync(packPath, "user:alice", mountedBy: "test");
+            var records = await registry.ListAsync("user:alice");
+
+            Assert.True(first.Created);
+            Assert.False(second.Created);
+            var record = Assert.Single(records);
+            Assert.Equal("user:alice", record.Namespace);
+            Assert.Equal("com.company-a.products", record.PackId);
+            Assert.Equal("2026.05", record.PackVersion);
+            Assert.True(record.Enabled);
+            Assert.StartsWith("sha256:", record.PackChecksum, StringComparison.Ordinal);
+
+            Assert.True(await registry.UnmountAsync("com.company-a.products", "user:alice"));
+            Assert.Empty(await registry.ListAsync("user:alice"));
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static KnowledgePackManifest ValidManifest() => new()
     {
         PackId = "com.company-a.products",
@@ -155,4 +191,25 @@ public sealed class KnowledgePackTests
             ["sources/source-1.json"] = "sha256:abc"
         }
     };
+
+    private static async Task<string> CreatePackAsync(string root)
+    {
+        var docs = Path.Combine(root, "docs");
+        Directory.CreateDirectory(docs);
+        await File.WriteAllTextAsync(Path.Combine(docs, "overview.md"), "# Product\nA useful product.");
+
+        var build = await KnowledgePackBuilder.BuildFromPathAsync(
+            docs,
+            new KnowledgePackBuildOptions
+            {
+                PackId = "com.company-a.products",
+                Name = "Company A Product Knowledge",
+                Version = "2026.05"
+            });
+
+        var packPath = Path.Combine(root, "company-a.banyanpack");
+        await using var stream = File.Create(packPath);
+        await KnowledgePackArchive.WriteAsync(stream, build.Manifest, build.Entries);
+        return packPath;
+    }
 }
