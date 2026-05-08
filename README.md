@@ -136,21 +136,18 @@ tests/
 | [`docs/release/1.0.0.md`](./docs/release/1.0.0.md) | Release notes and operational checklist for Banyan Brain Lite 1.0.0 |
 | [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | Claude Desktop / Claude Code MCP integration |
 | [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | Connecting an agent to Banyan through HTTP |
-| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite · Pro · Ent tier matrix and repo scope |
+| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Public edition boundary for Lite and commercial licensing |
 | [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | SQLite memory, identity, and CA storage layout |
 | [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 NCP / NWP / NIP |
 | [`docs/architecture/identity.md`](./docs/architecture/identity.md) | Dual-track identity: NID for machines, OLS/OIDC for humans |
-| [`docs/architecture/pro-roadmap.md`](./docs/architecture/pro-roadmap.md) | Pro feature scope and dependency plan |
-| [`docs/architecture/adr-001-memory-pools.md`](./docs/architecture/adr-001-memory-pools.md) | ADR-001 shared memory pools design |
 
 ## Edition boundary
 
 This repository is the **Lite** distribution. Lite is Apache-2.0, single-node, SQLite-backed, and suitable for local agent memory, small deployments, demos, and embedded/offline workloads.
 
-Commercial tiers live separately:
+Commercial editions are available for teams that need multi-tenant deployment, external trust infrastructure, shared knowledge and memory governance, enterprise deployment controls, advanced audit, orchestration, or larger operational topologies.
 
-- `innolotus/banyan-brain-pro` — multi-tenant Pro tier with external CA, tenant scope enforcement, and shared memory pools.
-- `innolotus/banyan-brain-ent` — enterprise AaaS L3 tier with Anchor Node ingress, Vector Proxy, Bridge Node adapters, orchestration, and audit/quorum capabilities.
+For commercial licensing or enterprise deployment, contact INNO LOTUS PTY LTD.
 
 ## Built on
 
