@@ -3,6 +3,10 @@
     <AssemblyName>Banyan.Web</AssemblyName>
     <RootNamespace>Banyan.Web</RootNamespace>
     <UserSecretsId>banyan-web-demo</UserSecretsId>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Web</PackageId>
+    <Description>Banyan Web — embedded admin/setup/login UI and HTTP surface for Banyan Lite hosts; ships wwwroot assets, OIDC discovery, JWT-gated admin routes, and external-CA trust hooks.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />

@@ -2,6 +2,10 @@
   <PropertyGroup>
     <AssemblyName>Banyan.Mcp</AssemblyName>
     <RootNamespace>Banyan.Mcp</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Mcp</PackageId>
+    <Description>Banyan MCP — Model Context Protocol stdio server bindings for embedding Banyan memory tools in Claude Desktop / Claude Code or any MCP-aware host.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
