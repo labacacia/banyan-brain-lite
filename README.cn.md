@@ -136,7 +136,7 @@ tests/
 | [`docs/release/1.0.0.cn.md`](./docs/release/1.0.0.cn.md) | Banyan Brain Lite 1.0.0 发布说明和运维检查清单 |
 | [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | Claude Desktop / Claude Code MCP 接入 |
 | [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | 通过 HTTP 把 agent 接到 Banyan |
-| [`docs/architecture/editions.cn.md`](./docs/architecture/editions.cn.md) | Lite 的公开版本边界和商业授权说明 |
+| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite 的公开版本边界 |
 | [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | SQLite memory、identity、CA 存储结构 |
 | [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 如何映射到 NPS-3 NCP / NWP / NIP |
 | [`docs/architecture/identity.cn.md`](./docs/architecture/identity.cn.md) | 双轨身份：机器走 NID，人走 OLS/OIDC |
@@ -145,7 +145,7 @@ tests/
 
 本仓库是 **Lite** 发行版。Lite 采用 Apache-2.0，单节点、SQLite-backed，适合本地 agent memory、小型部署、demo、嵌入式和离线工作负载。
 
-如团队需要多租户部署、外部信任基础设施、共享知识与记忆治理、企业部署控制、更高级审计、编排或更大规模运维拓扑，可联系 INNO LOTUS PTY LTD 了解商业版本与企业部署。
+商业版本和企业部署选项由独立渠道维护。如需商业授权或企业部署，请联系 INNO LOTUS PTY LTD。
 
 ## 站在巨人肩膀上
 
