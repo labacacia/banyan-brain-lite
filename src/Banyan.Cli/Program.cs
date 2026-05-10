@@ -6,24 +6,25 @@ if (args.Length == 0 || args[0] is "--help" or "-h" or "help")
     return 0;
 }
 
-var command  = args[0];
-var rest     = args.Skip(1).ToArray();
+var command = args[0];
+var rest = args.Skip(1).ToArray();
 
 return command switch
 {
     "keygen" => KeygenCommand.Run(rest),
-    "init"   => await InitCommand.RunAsync(rest),
+    "init" => await InitCommand.RunAsync(rest),
     "reset-admin-pwd" => await ResetAdminPasswordCommand.RunAsync(rest),
-    "login"  => await LoginCommand.RunAsync(rest),
+    "login" => await LoginCommand.RunAsync(rest),
     "whoami" => WhoamiCommand.Run(rest),
     "logout" => await LogoutCommand.RunAsync(rest),
-    "ca"     => await CaCommand.RunAsync(rest),
-    "agent"  => await AgentCommand.RunAsync(rest),
-    "web"    => await WebCommand.RunAsync(rest),
-    "mcp"    => await McpCommand.RunAsync(rest),
+    "ca" => await CaCommand.RunAsync(rest),
+    "agent" => await AgentCommand.RunAsync(rest),
+    "web" => await WebCommand.RunAsync(rest),
+    "mcp" => await McpCommand.RunAsync(rest),
+    "pack" => await PackCommand.RunAsync(rest),
     "embedder" => await EmbedderCommand.RunAsync(rest),
-    "serve"    => await ServeCommand.RunAsync(rest),
-    _        => Unknown(command),
+    "serve" => await ServeCommand.RunAsync(rest),
+    _ => Unknown(command),
 };
 
 static int Unknown(string cmd)
@@ -79,6 +80,26 @@ static void PrintHelp()
                       --db PATH          (default: ~/.banyan/memory.db)
                       --namespace NS     default write namespace (default: default)
                       --sqlite-vec PATH  sqlite-vec extension path
+
+        Knowledge Packs:
+          pack build PATH
+                    Build a portable .banyanpack from .md, .txt, and .json files
+                      --out PATH
+                      --pack-id ID
+                      --name NAME
+                      --version VERSION
+                      --dry-run
+          pack inspect PATH
+                    Inspect a .banyanpack manifest
+          pack mount PATH
+                    Mount a .banyanpack into a namespace
+                      --namespace NS
+          pack list
+                    List mounted knowledge packs
+                      --namespace NS
+          pack unmount ID
+                    Unmount a pack id from a namespace
+                      --namespace NS
 
         Demo:
           web       Start the demo web UI (default: http://localhost:5180)
