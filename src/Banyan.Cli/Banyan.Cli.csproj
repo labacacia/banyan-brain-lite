@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>banyan</AssemblyName>
+    <RootNamespace>Banyan.Cli</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackAsTool>true</PackAsTool>
+    <ToolCommandName>banyan</ToolCommandName>
+    <SelfContained>false</SelfContained>
+    <PackageId>Banyan.Cli</PackageId>
+    <Description>Banyan command-line — keygen, identity init/login, NID CA (ca init / agent issue/list/revoke/verify), embedder download, web demo, serve Memory Node. Install with: dotnet tool install -g Banyan.Cli</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+    <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
+    <ProjectReference Include="../Banyan.Identity/Banyan.Identity.csproj" />
+    <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
+    <ProjectReference Include="../Banyan.Mcp/Banyan.Mcp.csproj" />
+    <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
+    <ProjectReference Include="../Banyan.Node/Banyan.Node.csproj" />
+    <ProjectReference Include="../Banyan.Web/Banyan.Web.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="ModelContextProtocol" Version="1.2.0" />
+  </ItemGroup>
+  <!-- System.CommandLine added in P3 -->
+</Project>

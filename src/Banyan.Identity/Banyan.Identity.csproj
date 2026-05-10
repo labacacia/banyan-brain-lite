@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Identity</AssemblyName>
+    <RootNamespace>Banyan.Identity</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="OLS.Root.Core" Version="1.0.0-alpha.1" />
+    <PackageReference Include="OLS.Root.Authentication" Version="1.0.0-alpha.1" />
+    <PackageReference Include="OLS.Root.Authorisation" Version="1.0.0-alpha.1" />
+    <PackageReference Include="OLS.Root.Oidc" Version="1.0.0-alpha.1" />
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.*" />
+  </ItemGroup>
+</Project>

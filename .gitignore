@@ -1,0 +1,74 @@
+# ── .NET build outputs ──────────────────────────────────────────────────────
+bin/
+obj/
+*.user
+*.suo
+*.userprefs
+.vs/
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ── Test output ─────────────────────────────────────────────────────────────
+TestResults/
+*.trx
+*.coverage
+*.coveragexml
+[Cc]overage*/
+
+# ── NuGet ───────────────────────────────────────────────────────────────────
+*.nupkg
+*.snupkg
+.nuget/
+packages/
+project.lock.json
+project.assets.json
+*.nuget.props
+*.nuget.targets
+
+# ── Banyan-specific runtime data — never commit credentials or local state ──
+*.db
+*.db-shm
+*.db-wal
+*.pem
+*.key
+*.key.enc
+.banyan/
+~/.banyan/
+
+# ── Local AI assistant / scratch state ──────────────────────────────────────
+.claude/
+log/
+todo
+
+# ── ML assets — these are fetched at runtime via `banyan embedder download` ─
+*.onnx
+vec0.so
+vec0.dylib
+vec0.dll
+vocab.txt
+sentencepiece.bpe.model
+tokenizer.json
+
+# ── Docker / Docker Compose ─────────────────────────────────────────────────
+.env
+.env.local
+
+# ── OS junk ─────────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Build artifacts (dotnet pack output) ────────────────────────────────────
+artifacts/
+
+# ── Tooling caches ──────────────────────────────────────────────────────────
+.cache/
+*.log
+node_modules/
+
+# ── Local assistant/project memory ──────────────────────────────────────────
+.claude/
+log/todo/

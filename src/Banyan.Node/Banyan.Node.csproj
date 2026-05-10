@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Node</AssemblyName>
+    <RootNamespace>Banyan.Node</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+    <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
+    <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
+    <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
+    <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="LabAcacia.NPS.NWP" Version="1.0.0-alpha.5" />
+  </ItemGroup>
+</Project>

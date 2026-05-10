@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "banyan": {
+      "command": "banyan",
+      "args": ["mcp", "--db", "/home/wind/.banyan/memory.db"]
+    }
+  }
+}

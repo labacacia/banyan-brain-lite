@@ -1,0 +1,20 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Banyan.Auth/Banyan.Auth.csproj" />
+    <Project Path="src/Banyan.Cli/Banyan.Cli.csproj" />
+    <Project Path="src/Banyan.Core/Banyan.Core.csproj" />
+    <Project Path="src/Banyan.Embedders/Banyan.Embedders.csproj" />
+    <Project Path="src/Banyan.Identity/Banyan.Identity.csproj" />
+    <Project Path="src/Banyan.Lite/Banyan.Lite.csproj" />
+    <Project Path="src/Banyan.Mcp/Banyan.Mcp.csproj" />
+    <Project Path="src/Banyan.Node/Banyan.Node.csproj" />
+    <Project Path="src/Banyan.Web/Banyan.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Banyan.Auth.Tests/Banyan.Auth.Tests.csproj" />
+    <Project Path="tests/Banyan.Core.Tests/Banyan.Core.Tests.csproj" />
+    <Project Path="tests/Banyan.Identity.Tests/Banyan.Identity.Tests.csproj" />
+    <Project Path="tests/Banyan.Node.Tests/Banyan.Node.Tests.csproj" />
+    <Project Path="tests/Banyan.Lite.Tests/Banyan.Lite.Tests.csproj" />
+  </Folder>
+</Solution>

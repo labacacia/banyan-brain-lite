@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Embedders</AssemblyName>
+    <RootNamespace>Banyan.Embedders</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Embedders</PackageId>
+    <Description>Banyan IEmbedder implementations — HashingEmbedder (offline char n-gram, zero deps) and OnnxEmbedder (BERT-WordPiece + Microsoft.ML.OnnxRuntime; defaults to bge-small-zh-v1.5 INT8). Includes EmbedderFactory env-var switching.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.*" />
+    <PackageReference Include="Microsoft.ML.Tokenizers"  Version="1.0.*" />
+  </ItemGroup>
+</Project>

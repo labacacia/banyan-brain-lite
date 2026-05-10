@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!-- ── Shared package metadata ─────────────────────────────────────────── -->
+    <Version>1.0.0</Version>
+    <Authors>INNO LOTUS PTY LTD</Authors>
+    <Company>INNO LOTUS PTY LTD</Company>
+    <Copyright>Copyright © 2026 INNO LOTUS PTY LTD</Copyright>
+    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/labacacia/banyan-brain-lite</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/labacacia/banyan-brain-lite</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>banyan;memory;nps;nip;nwp;agent;ai;sqlite;vector;hybrid-search</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+
+    <!-- Default: don't pack. Library projects set IsPackable=true individually. -->
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <!-- Every packable project ships the repo-root README.md. -->
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" Visible="false" />
+  </ItemGroup>
+</Project>

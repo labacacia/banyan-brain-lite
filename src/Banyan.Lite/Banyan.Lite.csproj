@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Lite</AssemblyName>
+    <RootNamespace>Banyan.Lite</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Lite</PackageId>
+    <Description>Banyan SQLite-backed memory store — BM25 (FTS5) + vector (cosine + optional sqlite-vec ANN) + RRF hybrid search, with event-sourced write/update/forget over SQLite WAL.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="9.*" />
+  </ItemGroup>
+</Project>

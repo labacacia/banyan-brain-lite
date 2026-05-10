@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Web</AssemblyName>
+    <RootNamespace>Banyan.Web</RootNamespace>
+    <UserSecretsId>banyan-web-demo</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+    <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
+    <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
+    <ProjectReference Include="../Banyan.Mcp/Banyan.Mcp.csproj" />
+    <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
+    <ProjectReference Include="../Banyan.Identity/Banyan.Identity.csproj" />
+    <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- The Web SDK already includes wwwroot/** as Content; force CopyToOutput so wwwroot lands
+         next to Banyan.Web.dll wherever it ships (CLI's bin/, publish dir, …). -->
+    <Content Update="wwwroot/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+</Project>

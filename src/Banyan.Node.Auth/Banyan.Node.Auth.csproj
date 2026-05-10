@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Node.Auth</AssemblyName>
+    <RootNamespace>Banyan.Node.Auth</RootNamespace>
+    <OutputType>Library</OutputType>
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Node.Auth</PackageId>
+    <Description>Banyan NID authentication middleware (NPS-3 NIP IdentFrame verification) and NIP CA HTTP endpoints for ASP.NET Core. Shared by Banyan.Node and Banyan.Node.Pro; reference this package to embed NID auth in any ASP.NET Core host.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
+  </ItemGroup>
+</Project>
