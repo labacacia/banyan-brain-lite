@@ -136,7 +136,7 @@ tests/
 | [`docs/release/1.0.0.md`](./docs/release/1.0.0.md) | Release notes and operational checklist for Banyan Brain Lite 1.0.0 |
 | [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | Claude Desktop / Claude Code MCP integration |
 | [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | Connecting an agent to Banyan through HTTP |
-| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Public edition boundary for Lite and commercial licensing |
+| [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Public Lite edition boundary |
 | [`docs/architecture/storage-tiers.md`](./docs/architecture/storage-tiers.md) | SQLite memory, identity, and CA storage layout |
 | [`docs/architecture/nps-mapping.md`](./docs/architecture/nps-mapping.md) | How Banyan maps to NPS-3 NCP / NWP / NIP |
 | [`docs/architecture/identity.md`](./docs/architecture/identity.md) | Dual-track identity: NID for machines, OLS/OIDC for humans |
@@ -145,9 +145,7 @@ tests/
 
 This repository is the **Lite** distribution. Lite is Apache-2.0, single-node, SQLite-backed, and suitable for local agent memory, small deployments, demos, and embedded/offline workloads.
 
-Commercial editions are available for teams that need multi-tenant deployment, external trust infrastructure, shared knowledge and memory governance, enterprise deployment controls, advanced audit, orchestration, or larger operational topologies.
-
-For commercial licensing or enterprise deployment, contact INNO LOTUS PTY LTD.
+Commercial editions and enterprise deployment options are maintained separately. For commercial licensing or enterprise deployment, contact INNO LOTUS PTY LTD.
 
 ## Built on
 
