@@ -66,6 +66,12 @@ public sealed class FileKnowledgePackMountRegistry
 
         var fullPackPath = Path.GetFullPath(packPath);
         await using var packStream = File.OpenRead(fullPackPath);
+        KnowledgePackValidationResult validation = await KnowledgePackArchive.ValidateAsync(
+            packStream,
+            cancellationToken).ConfigureAwait(false);
+        validation.ThrowIfInvalid();
+
+        packStream.Position = 0;
         var manifest = await KnowledgePackArchive.ReadManifestAsync(packStream, cancellationToken).ConfigureAwait(false);
         packStream.Position = 0;
         var checksum = "sha256:" + Convert.ToHexString(await SHA256.HashDataAsync(packStream, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();

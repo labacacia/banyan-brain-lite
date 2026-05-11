@@ -82,6 +82,7 @@ public sealed class KnowledgePackRecallStore(
             }
 
             var rank = 0;
+            var sources = await ReadSourceRecordsAsync(archive, ct).ConfigureAwait(false);
             foreach (var record in await ReadMemoryRecordsAsync(archive, ct).ConfigureAwait(false))
             {
                 var score = Score(query.Text, record);
@@ -92,7 +93,7 @@ public sealed class KnowledgePackRecallStore(
 
                 rank++;
                 yield return new SearchHit(
-                    ToMemory(mount, manifest, record),
+                    ToMemory(mount, manifest, record, sources.GetValueOrDefault(record.SourceId)),
                     score,
                     VectorRank: null,
                     LexicalRank: rank);
@@ -132,10 +133,43 @@ public sealed class KnowledgePackRecallStore(
         return records;
     }
 
+    private static async Task<IReadOnlyDictionary<string, KnowledgePackSourceRecord>> ReadSourceRecordsAsync(
+        ZipArchive archive,
+        CancellationToken ct)
+    {
+        var entry = archive.GetEntry("sources/sources.jsonl");
+        if (entry is null)
+        {
+            return new Dictionary<string, KnowledgePackSourceRecord>(StringComparer.Ordinal);
+        }
+
+        var sources = new Dictionary<string, KnowledgePackSourceRecord>(StringComparer.Ordinal);
+        using var reader = new StreamReader(entry.Open(), Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
+        while (await reader.ReadLineAsync(ct).ConfigureAwait(false) is { } line)
+        {
+            ct.ThrowIfCancellationRequested();
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                continue;
+            }
+
+            var source = JsonSerializer.Deserialize<KnowledgePackSourceRecord>(
+                line,
+                KnowledgePackArchive.JsonLineOptions);
+            if (source is not null)
+            {
+                sources[source.SourceId] = source;
+            }
+        }
+
+        return sources;
+    }
+
     private static Memory ToMemory(
         KnowledgePackMountRecord mount,
         KnowledgePackManifest manifest,
-        KnowledgePackMemoryRecord record)
+        KnowledgePackMemoryRecord record,
+        KnowledgePackSourceRecord? source)
     {
         var metadata = JsonSerializer.SerializeToDocument(new
         {
@@ -147,7 +181,12 @@ public sealed class KnowledgePackRecallStore(
             record_id = record.RecordId,
             source_id = record.SourceId,
             source_path = record.SourcePath,
-            kind = record.Kind
+            source_title = source?.Title,
+            source_checksum = source?.Checksum,
+            source_section_id = record.SourceSectionId,
+            confidence = record.Confidence,
+            kind = record.Kind,
+            mounted_at = mount.MountedAt
         }, KnowledgePackArchive.JsonOptions);
 
         var id = StableGuid($"{manifest.PackId}:{manifest.Version}:{record.RecordId}");

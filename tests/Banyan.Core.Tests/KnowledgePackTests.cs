@@ -91,6 +91,64 @@ public sealed class KnowledgePackTests
     }
 
     [Fact]
+    public async Task Archive_ValidateAsync_ChecksManifestContentChecksums()
+    {
+        await using var stream = new MemoryStream();
+        await KnowledgePackArchive.WriteAsync(
+            stream,
+            ValidManifest() with
+            {
+                Checksums = new Dictionary<string, string>
+                {
+                    ["memories/records.jsonl"] = "sha256:0000"
+                }
+            },
+            [new KnowledgePackArchiveEntry("memories/records.jsonl", Encoding.UTF8.GetBytes("{}\n"))]);
+
+        stream.Position = 0;
+        var result = await KnowledgePackArchive.ValidateAsync(stream);
+
+        Assert.False(result.IsValid);
+        Assert.Contains(result.Errors, e => e.StartsWith("checksum mismatch for memories/records.jsonl", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task Archive_ValidateAsync_AcceptsBuilderChecksums()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-pack-checksum-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, "overview.md"), "# Product\nA useful product.");
+
+            var build = await KnowledgePackBuilder.BuildFromPathAsync(
+                root,
+                new KnowledgePackBuildOptions
+                {
+                    PackId = "com.company-a.products",
+                    Name = "Company A Product Knowledge",
+                    Version = "2026.05"
+                });
+            await using var stream = new MemoryStream();
+            await KnowledgePackArchive.WriteAsync(stream, build.Manifest, build.Entries);
+
+            stream.Position = 0;
+            var result = await KnowledgePackArchive.ValidateAsync(stream);
+
+            Assert.True(result.IsValid);
+            Assert.Contains("sources/sources.jsonl", build.Manifest.Checksums.Keys);
+            Assert.Contains("memories/records.jsonl", build.Manifest.Checksums.Keys);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
     public void Manifest_UsesSnakeCaseJsonContract()
     {
         var json = JsonSerializer.Serialize(ValidManifest(), KnowledgePackArchive.JsonOptions);
@@ -128,6 +186,7 @@ public sealed class KnowledgePackTests
             Assert.Contains(result.Sources, static s => s.Path == "pricing.json" && s.MediaType == "application/json");
             Assert.Contains(result.Entries, static e => e.Path == "sources/sources.jsonl");
             Assert.Contains(result.Entries, static e => e.Path == "memories/records.jsonl");
+            Assert.All(result.Memories, static memory => Assert.Equal("file", memory.SourceSectionId));
         }
         finally
         {
@@ -193,6 +252,9 @@ public sealed class KnowledgePackTests
             Assert.Contains("useful product", hit.Memory.Content, StringComparison.OrdinalIgnoreCase);
             Assert.Equal("knowledge_pack", hit.Memory.Metadata!.RootElement.GetProperty("source").GetString());
             Assert.Equal("com.company-a.products", hit.Memory.Metadata.RootElement.GetProperty("pack_id").GetString());
+            Assert.Equal("overview.md", hit.Memory.Metadata.RootElement.GetProperty("source_title").GetString());
+            Assert.StartsWith("sha256:", hit.Memory.Metadata.RootElement.GetProperty("source_checksum").GetString());
+            Assert.Equal("file", hit.Memory.Metadata.RootElement.GetProperty("source_section_id").GetString());
         }
         finally
         {
@@ -201,6 +263,19 @@ public sealed class KnowledgePackTests
                 Directory.Delete(root, recursive: true);
             }
         }
+    }
+
+    [Theory]
+    [InlineData("2026.05", "2026.06", KnowledgePackVersionOrder.Newer)]
+    [InlineData("2026.05.1", "2026.05", KnowledgePackVersionOrder.Older)]
+    [InlineData("1.2.0", "1.2", KnowledgePackVersionOrder.Same)]
+    [InlineData("1.2-alpha", "1.2-beta", KnowledgePackVersionOrder.Newer)]
+    public void Version_ComparisonDefinesReplacementOrder(
+        string current,
+        string candidate,
+        KnowledgePackVersionOrder expected)
+    {
+        Assert.Equal(expected, KnowledgePackVersion.Compare(current, candidate));
     }
 
     [Fact]
