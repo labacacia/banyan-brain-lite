@@ -43,6 +43,12 @@ public sealed class FileKnowledgePackMountRegistry
 {
     private readonly string path;
 
+    public static string DefaultPath => Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
+        ".banyan",
+        "knowledge-packs",
+        "mounts.json");
+
     public FileKnowledgePackMountRegistry(string path)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);

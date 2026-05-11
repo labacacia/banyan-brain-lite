@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Runtime.CompilerServices;
 using Banyan.Core.KnowledgePacks;
 using Xunit;
 
@@ -173,6 +174,133 @@ public sealed class KnowledgePackTests
         }
     }
 
+    [Fact]
+    public async Task RecallStore_ReturnsMountedPackRecordsWithPackMetadata()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-recall-pack-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var packPath = await CreatePackAsync(root);
+            var registry = new FileKnowledgePackMountRegistry(Path.Combine(root, "mounts.json"));
+            await registry.MountAsync(packPath, "user:alice", mountedBy: "test");
+            var store = new KnowledgePackRecallStore(new StubMemoryStore(), registry);
+
+            var hits = await CollectAsync(store.SearchAsync(new SearchQuery("useful product", 5, "user:alice", SearchMode.Lexical)));
+
+            var hit = Assert.Single(hits);
+            Assert.Equal("user:alice", hit.Memory.Namespace);
+            Assert.Contains("useful product", hit.Memory.Content, StringComparison.OrdinalIgnoreCase);
+            Assert.Equal("knowledge_pack", hit.Memory.Metadata!.RootElement.GetProperty("source").GetString());
+            Assert.Equal("com.company-a.products", hit.Memory.Metadata.RootElement.GetProperty("pack_id").GetString());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RecallStore_MergesNativeAndMountedPackRecords()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-recall-merge-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var packPath = await CreatePackAsync(root);
+            var registry = new FileKnowledgePackMountRegistry(Path.Combine(root, "mounts.json"));
+            await registry.MountAsync(packPath, "user:alice", mountedBy: "test");
+            var nativeMemory = new Memory(
+                MemoryId.New(),
+                EventId.New(),
+                "user:alice",
+                "Native product note",
+                null,
+                null,
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow);
+            var store = new KnowledgePackRecallStore(
+                new StubMemoryStore([new SearchHit(nativeMemory, 1.2, null, 1)]),
+                registry);
+
+            var hits = await CollectAsync(store.SearchAsync(new SearchQuery("product", 5, "user:alice", SearchMode.Lexical)));
+
+            Assert.Equal(2, hits.Count);
+            Assert.Contains(hits, h => h.Memory.Id == nativeMemory.Id);
+            Assert.Contains(hits, h => h.Memory.Metadata?.RootElement.GetProperty("source").GetString() == "knowledge_pack");
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RecallStore_UnmountedPackIsRemovedFromRecall()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-recall-unmount-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var packPath = await CreatePackAsync(root);
+            var registry = new FileKnowledgePackMountRegistry(Path.Combine(root, "mounts.json"));
+            await registry.MountAsync(packPath, "user:alice", mountedBy: "test");
+            await registry.UnmountAsync("com.company-a.products", "user:alice");
+            var store = new KnowledgePackRecallStore(new StubMemoryStore(), registry);
+
+            var hits = await CollectAsync(store.SearchAsync(new SearchQuery("product", 5, "user:alice", SearchMode.Lexical)));
+
+            Assert.Empty(hits);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Fact]
+    public async Task RecallStore_NativeOnlyRecallStillWorks()
+    {
+        var root = Path.Combine(Path.GetTempPath(), "banyan-recall-native-test-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(root);
+        try
+        {
+            var nativeMemory = new Memory(
+                MemoryId.New(),
+                EventId.New(),
+                "user:alice",
+                "Native memory",
+                null,
+                null,
+                DateTimeOffset.UtcNow,
+                DateTimeOffset.UtcNow);
+            var store = new KnowledgePackRecallStore(
+                new StubMemoryStore([new SearchHit(nativeMemory, 1, null, 1)]),
+                new FileKnowledgePackMountRegistry(Path.Combine(root, "mounts.json")));
+
+            var hits = await CollectAsync(store.SearchAsync(new SearchQuery("native", 5, "user:alice", SearchMode.Lexical)));
+
+            var hit = Assert.Single(hits);
+            Assert.Equal(nativeMemory.Id, hit.Memory.Id);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
     private static KnowledgePackManifest ValidManifest() => new()
     {
         PackId = "com.company-a.products",
@@ -211,5 +339,53 @@ public sealed class KnowledgePackTests
         await using var stream = File.Create(packPath);
         await KnowledgePackArchive.WriteAsync(stream, build.Manifest, build.Entries);
         return packPath;
+    }
+
+    private static async Task<IReadOnlyList<SearchHit>> CollectAsync(IAsyncEnumerable<SearchHit> hits)
+    {
+        var result = new List<SearchHit>();
+        await foreach (var hit in hits)
+        {
+            result.Add(hit);
+        }
+
+        return result;
+    }
+
+    private sealed class StubMemoryStore(IReadOnlyList<SearchHit>? hits = null) : IMemoryStore
+    {
+        public Task<MemoryId> WriteAsync(WriteRequest req, CancellationToken ct = default)
+            => Task.FromResult(MemoryId.New());
+
+        public Task<EventId> UpdateAsync(MemoryId id, UpdateRequest req, CancellationToken ct = default)
+            => Task.FromResult(EventId.New());
+
+        public Task<EventId> ForgetAsync(MemoryId id, string? reason = null, CancellationToken ct = default)
+            => Task.FromResult(EventId.New());
+
+        public Task<Memory?> GetAsync(MemoryId id, CancellationToken ct = default)
+            => Task.FromResult<Memory?>(null);
+
+        public Task<IReadOnlyList<Memory>> RecallAsync(IEnumerable<MemoryId> ids, CancellationToken ct = default)
+            => Task.FromResult<IReadOnlyList<Memory>>([]);
+
+        public async IAsyncEnumerable<SearchHit> SearchAsync(SearchQuery query, [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            foreach (var hit in hits ?? [])
+            {
+                ct.ThrowIfCancellationRequested();
+                yield return hit;
+            }
+
+            await Task.CompletedTask;
+        }
+
+        public async IAsyncEnumerable<MemoryEvent> TraceAsync(MemoryId id, [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            await Task.CompletedTask;
+            yield break;
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

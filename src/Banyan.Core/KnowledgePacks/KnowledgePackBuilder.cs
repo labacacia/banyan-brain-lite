@@ -140,7 +140,7 @@ public static class KnowledgePackBuilder
 
     private static KnowledgePackArchiveEntry JsonEntry<T>(string path, IReadOnlyList<T> records)
     {
-        var lines = records.Select(record => JsonSerializer.Serialize(record, KnowledgePackArchive.JsonOptions));
+        var lines = records.Select(record => JsonSerializer.Serialize(record, KnowledgePackArchive.JsonLineOptions));
         return new KnowledgePackArchiveEntry(path, Encoding.UTF8.GetBytes(string.Join('\n', lines) + "\n"));
     }
 

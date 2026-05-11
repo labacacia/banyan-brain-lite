@@ -54,7 +54,24 @@ public sealed class BanyanMemoryTools(
             return "No matching memories found.";
 
         return string.Join("\n\n", hits.Select((h, i) =>
-            $"[{i + 1}] score={h.Score:F3}  id={h.Memory.Id}  ns={h.Memory.Namespace}\n{h.Memory.Content}"));
+            $"[{i + 1}] score={h.Score:F3}  id={h.Memory.Id}  ns={h.Memory.Namespace}{PackContextLabel(h.Memory)}\n{h.Memory.Content}"));
+    }
+
+    private static string PackContextLabel(Memory memory)
+    {
+        if (memory.Metadata?.RootElement.TryGetProperty("source", out var source) != true
+            || source.GetString() != "knowledge_pack")
+        {
+            return "";
+        }
+
+        var packId = memory.Metadata.RootElement.TryGetProperty("pack_id", out var id)
+            ? id.GetString()
+            : null;
+        var version = memory.Metadata.RootElement.TryGetProperty("pack_version", out var v)
+            ? v.GetString()
+            : null;
+        return $"  source=knowledge_pack  pack={packId}@{version}";
     }
 
     [McpServerTool(Name = "remember")]

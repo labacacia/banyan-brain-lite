@@ -15,7 +15,8 @@ public static class MemoryEndpoints
     public sealed record SearchHitDto(
         string MemoryId, string Namespace, string Content,
         double Score, int? LexicalRank, int? VectorRank,
-        DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+        DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt,
+        JsonElement? Metadata);
 
     public sealed record MemoryDto(string MemoryId, string LatestEventId, string Namespace, string Content, JsonElement? Metadata, string? AgentNid, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
     public sealed record EventDto(string EventId, string MemoryId, int Type, string TypeName, string? Content, JsonElement? Metadata, string? AgentNid, string Namespace, DateTimeOffset OccurredAt);
@@ -42,7 +43,7 @@ public static class MemoryEndpoints
         });
 
         g.MapGet("/search", async (
-            string q, SqliteMemoryStore store,
+            string q, IMemoryStore store,
             string? mode = null, string? @namespace = null, int k = 10) =>
         {
             var resolvedMode = ParseMode(mode);
@@ -50,10 +51,14 @@ public static class MemoryEndpoints
             var hits  = new List<SearchHitDto>();
             await foreach (var h in store.SearchAsync(query))
             {
+                JsonElement? meta = h.Memory.Metadata is null
+                    ? null
+                    : JsonDocument.Parse(h.Memory.Metadata.RootElement.GetRawText()).RootElement;
                 hits.Add(new SearchHitDto(
                     h.Memory.Id.ToString(), h.Memory.Namespace, h.Memory.Content,
                     h.Score, h.LexicalRank, h.VectorRank,
-                    h.Memory.CreatedAt, h.Memory.UpdatedAt));
+                    h.Memory.CreatedAt, h.Memory.UpdatedAt,
+                    meta));
             }
             return Results.Ok(new { mode = resolvedMode.ToString().ToLowerInvariant(), hits });
         });

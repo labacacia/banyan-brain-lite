@@ -13,6 +13,12 @@ public static class KnowledgePackArchive
         PropertyNameCaseInsensitive = true
     };
 
+    public static readonly JsonSerializerOptions JsonLineOptions = new()
+    {
+        WriteIndented = false,
+        PropertyNameCaseInsensitive = true
+    };
+
     public static async Task WriteAsync(
         Stream output,
         KnowledgePackManifest manifest,

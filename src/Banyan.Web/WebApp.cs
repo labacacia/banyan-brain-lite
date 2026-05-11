@@ -1,5 +1,6 @@
 using Banyan.Auth;
 using Banyan.Core;
+using Banyan.Core.KnowledgePacks;
 using Banyan.Embedders;
 using Banyan.Identity;
 using Banyan.Identity.Crypto;
@@ -47,7 +48,9 @@ public static class WebApp
             $"Data Source={memoryDb}", embedder, opts.SqliteVecLibPath, ct);
         builder.Services.AddSingleton(embedder);
         builder.Services.AddSingleton(memoryStore);
-        builder.Services.AddSingleton<IMemoryStore>(memoryStore);
+        builder.Services.AddSingleton<IMemoryStore>(new KnowledgePackRecallStore(
+            memoryStore,
+            new FileKnowledgePackMountRegistry(FileKnowledgePackMountRegistry.DefaultPath)));
         if (memoryStore.VecEnabled)
             Console.WriteLine($"[store] sqlite-vec ANN index ready: embeddings_vec");
 
