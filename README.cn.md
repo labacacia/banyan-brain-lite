@@ -137,6 +137,7 @@ tests/
 | [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | Claude Desktop / Claude Code MCP 接入 |
 | [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | 通过 HTTP 把 agent 接到 Banyan |
 | [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite 的公开版本边界 |
+| [`docs/architecture/shared-memory-pools.cn.md`](./docs/architecture/shared-memory-pools.cn.md) | Lite 本地共享记忆池层级规划 |
 | [`docs/architecture/storage-tiers.cn.md`](./docs/architecture/storage-tiers.cn.md) | SQLite memory、identity、CA 存储结构 |
 | [`docs/architecture/nps-mapping.cn.md`](./docs/architecture/nps-mapping.cn.md) | Banyan 如何映射到 NPS-3 NCP / NWP / NIP |
 | [`docs/architecture/identity.cn.md`](./docs/architecture/identity.cn.md) | 双轨身份：机器走 NID，人走 OLS/OIDC |
