@@ -134,6 +134,7 @@ tests/
 | Document | Description |
 |---|---|
 | [`docs/release/1.0.0.md`](./docs/release/1.0.0.md) | Release notes and operational checklist for Banyan Brain Lite 1.0.0 |
+| [`docs/client-integration-profile.md`](./docs/client-integration-profile.md) | Portable client profile for switching between Lite, Pro, and Ent |
 | [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | Claude Desktop / Claude Code MCP integration |
 | [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | Connecting an agent to Banyan through HTTP |
 | [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Public Lite edition boundary |

@@ -1,0 +1,47 @@
+{
+  "schema": "https://banyan.dev/schemas/client-integration-profile.v1.json",
+  "edition": "lite",
+  "defaultBaseUrl": "http://localhost:5180",
+  "startup": {
+    "web": "banyan web --nid-auth writes-required",
+    "npsMemoryNode": "banyan serve --nid-auth writes-required",
+    "mcpStdio": "banyan mcp"
+  },
+  "memoryPlane": {
+    "recommended": "nps-memory-node",
+    "supported": [
+      "http-rest",
+      "nps-memory-node",
+      "mcp-stdio",
+      "mcp-http"
+    ],
+    "endpoints": {
+      "manifest": "/.nwm",
+      "schema": "/.schema",
+      "nwpQuery": "/api/memory/query",
+      "restSearch": "/api/memory/search",
+      "restMemory": "/api/memory",
+      "mcpHttp": "/mcp"
+    }
+  },
+  "auth": {
+    "recommendedMode": "nid-writes-required",
+    "schemes": [
+      "anonymous",
+      "nid"
+    ],
+    "header": "Authorization: NID <base64(IdentFrame)>"
+  },
+  "scope": {
+    "tenant": "single-node",
+    "workspace": "client namespace"
+  },
+  "portableOperations": [
+    "memory.remember",
+    "memory.search",
+    "memory.update",
+    "memory.forget",
+    "memory.schema",
+    "memory.manifest"
+  ]
+}
