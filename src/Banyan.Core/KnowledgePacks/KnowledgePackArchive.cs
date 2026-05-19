@@ -1,5 +1,4 @@
 using System.IO.Compression;
-using System.Security.Cryptography;
 using System.Text.Json;
 
 namespace Banyan.Core.KnowledgePacks;
@@ -11,12 +10,6 @@ public static class KnowledgePackArchive
     public static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = true,
-        PropertyNameCaseInsensitive = true
-    };
-
-    public static readonly JsonSerializerOptions JsonLineOptions = new()
-    {
-        WriteIndented = false,
         PropertyNameCaseInsensitive = true
     };
 
@@ -83,11 +76,7 @@ public static class KnowledgePackArchive
     {
         try
         {
-            ArgumentNullException.ThrowIfNull(input);
-
-            using var archive = new ZipArchive(input, ZipArchiveMode.Read, leaveOpen: true);
-            var manifest = await ReadManifestAsync(archive, cancellationToken).ConfigureAwait(false);
-            await ValidateChecksumsAsync(archive, manifest, cancellationToken).ConfigureAwait(false);
+            _ = await ReadManifestAsync(input, cancellationToken).ConfigureAwait(false);
             return new KnowledgePackValidationResult([]);
         }
         catch (KnowledgePackValidationException ex)
@@ -101,38 +90,6 @@ public static class KnowledgePackArchive
         catch (JsonException ex)
         {
             return new KnowledgePackValidationResult([ex.Message]);
-        }
-        catch (ArgumentException ex)
-        {
-            return new KnowledgePackValidationResult([ex.Message]);
-        }
-    }
-
-    private static async Task ValidateChecksumsAsync(
-        ZipArchive archive,
-        KnowledgePackManifest manifest,
-        CancellationToken cancellationToken)
-    {
-        foreach (var (path, expected) in manifest.Checksums)
-        {
-            ValidateEntryPath(path);
-            if (!expected.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new KnowledgePackValidationException([$"checksum for {path} must use sha256:<hex>"]);
-            }
-
-            var entry = archive.GetEntry(path)
-                ?? throw new KnowledgePackValidationException([$"checksum entry is missing from archive: {path}"]);
-
-            await using var stream = entry.Open();
-            var actual = "sha256:" + Convert.ToHexString(
-                await SHA256.HashDataAsync(stream, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();
-
-            if (!string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new KnowledgePackValidationException(
-                    [$"checksum mismatch for {path}: expected {expected}, got {actual}"]);
-            }
         }
     }
 

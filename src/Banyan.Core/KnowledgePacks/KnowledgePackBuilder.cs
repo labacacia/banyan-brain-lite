@@ -74,25 +74,14 @@ public static class KnowledgePackBuilder
                 checksum,
                 bytes.Length));
 
+            checksums[$"sources/{sourceId}.json"] = checksum;
             memories.Add(new KnowledgePackMemoryRecord(
                 StableId("memory", relativePath),
                 sourceId,
                 "document",
                 content,
                 relativePath,
-                SourceSectionId: "file",
                 Confidence: null));
-        }
-
-        var entries = new List<KnowledgePackArchiveEntry>
-        {
-            JsonEntry("sources/sources.jsonl", sources),
-            JsonEntry("memories/records.jsonl", memories)
-        };
-
-        foreach (var entry in entries)
-        {
-            checksums[entry.Path] = "sha256:" + Convert.ToHexString(SHA256.HashData(entry.Content.Span)).ToLowerInvariant();
         }
 
         var manifest = new KnowledgePackManifest
@@ -112,6 +101,12 @@ public static class KnowledgePackBuilder
         };
 
         KnowledgePackManifestValidator.Validate(manifest).ThrowIfInvalid();
+
+        var entries = new List<KnowledgePackArchiveEntry>
+        {
+            JsonEntry("sources/sources.jsonl", sources),
+            JsonEntry("memories/records.jsonl", memories)
+        };
 
         return new KnowledgePackBuildResult(manifest, sources, memories, entries);
     }
@@ -145,7 +140,7 @@ public static class KnowledgePackBuilder
 
     private static KnowledgePackArchiveEntry JsonEntry<T>(string path, IReadOnlyList<T> records)
     {
-        var lines = records.Select(record => JsonSerializer.Serialize(record, KnowledgePackArchive.JsonLineOptions));
+        var lines = records.Select(record => JsonSerializer.Serialize(record, KnowledgePackArchive.JsonOptions));
         return new KnowledgePackArchiveEntry(path, Encoding.UTF8.GetBytes(string.Join('\n', lines) + "\n"));
     }
 
@@ -176,5 +171,4 @@ public sealed record KnowledgePackMemoryRecord(
     [property: JsonPropertyName("kind")] string Kind,
     [property: JsonPropertyName("content")] string Content,
     [property: JsonPropertyName("source_path")] string SourcePath,
-    [property: JsonPropertyName("source_section_id")] string? SourceSectionId = null,
-    [property: JsonPropertyName("confidence")] double? Confidence = null);
+    [property: JsonPropertyName("confidence")] double? Confidence);

@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Banyan.Core;
-using Banyan.Core.KnowledgePacks;
 using Banyan.Embedders;
 using Banyan.Lite;
 using Banyan.Mcp;
@@ -54,9 +53,7 @@ internal static class McpCommand
         builder.Logging.ClearProviders();
 
         builder.Services
-            .AddSingleton<IMemoryStore>(new KnowledgePackRecallStore(
-                store,
-                new FileKnowledgePackMountRegistry(FileKnowledgePackMountRegistry.DefaultPath)))
+            .AddSingleton<IMemoryStore>(store)
             .AddSingleton(new McpDefaults(defaultNs))
             .AddSingleton<IBanyanMcpAgentContext, NullBanyanMcpAgentContext>()
             .AddMcpServer()
