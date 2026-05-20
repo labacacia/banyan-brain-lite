@@ -1,0 +1,104 @@
+@page "/setup"
+@attribute [AllowAnonymous]
+@layout BlankLayout
+@using Banyan.Identity
+@using OLS.Root.Core.Models
+@using OLS.Root.Core.Security
+@inject NavigationManager Navigation
+@inject SqliteIdentityStore IdentityStore
+@inject IPasswordHasher<IdentityUser> Hasher
+
+<div style="width: 400px;">
+    <Card Bordered>
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h2 style="font-size: 22px; font-weight: 700; margin: 0;">Banyan Setup</h2>
+            <p style="color: rgba(0,0,0,0.45); margin: 4px 0 0;">Create your first admin account</p>
+        </div>
+
+        @if (_done)
+        {
+            <Result Status="success" Title="Setup complete"
+                    SubTitle="Your admin account has been created. You can now sign in." />
+            <Button Type="@ButtonType.Primary" Block OnClick="@(() => Navigation.NavigateTo("/login"))">
+                Go to sign in
+            </Button>
+        }
+        else
+        {
+            <Form Model="_model" OnFinish="HandleSetup" Layout="@FormLayout.Vertical">
+                <FormItem Label="Username">
+                    <Input @bind-Value="_model.Username" Placeholder="admin" />
+                </FormItem>
+                <FormItem Label="Password">
+                    <InputPassword @bind-Value="_model.Password" Placeholder="At least 10 characters" />
+                </FormItem>
+                <FormItem Label="Confirm password">
+                    <InputPassword @bind-Value="_model.Confirm" />
+                </FormItem>
+                @if (_error is not null)
+                {
+                    <Alert Type="@AlertType.Error" Message="@_error" Style="margin-bottom: 16px;" />
+                }
+                <FormItem>
+                    <Button HtmlType="submit" Type="@ButtonType.Primary" Loading="_loading" Block>
+                        Create admin account
+                    </Button>
+                </FormItem>
+            </Form>
+        }
+    </Card>
+</div>
+
+@code {
+    private readonly SetupModel _model = new();
+    private string? _error;
+    private bool _loading;
+    private bool _done;
+
+    private sealed class SetupModel
+    {
+        public string Username { get; set; } = "admin";
+        public string Password { get; set; } = "";
+        public string Confirm  { get; set; } = "";
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (await AdminBootstrapper.HasAdminAsync(IdentityStore))
+            Navigation.NavigateTo("/login", forceLoad: false);
+    }
+
+    private async Task HandleSetup()
+    {
+        _error = null;
+        if (_model.Password != _model.Confirm)
+        {
+            _error = "Passwords do not match.";
+            return;
+        }
+        if (_model.Password.Length < 10)
+        {
+            _error = "Password must be at least 10 characters.";
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            var result = await AdminBootstrapper.CreateInitialAdminAsync(
+                IdentityStore, Hasher, _model.Username, _model.Password);
+            if (result.Succeeded)
+                _done = true;
+            else
+                _error = string.Join("; ", result.Errors.Select(e => e.Description));
+        }
+        catch (Exception ex)
+        {
+            _error = ex.Message;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

@@ -1,0 +1,16 @@
+@page "/pools"
+@attribute [Authorize]
+
+<PageTitle>Pools — Banyan</PageTitle>
+
+<Empty
+    Description="@("Shared memory pools are coming in Banyan Lite 1.1.0")"
+    Style="padding: 48px 0;">
+    <ChildContent>
+        <p style="color: rgba(0,0,0,0.45); max-width: 420px; margin: 0 auto;">
+            Pools let you create named memory scopes shared across agents.
+            Levels: <Tag>personal</Tag> <Tag>local_workspace</Tag> <Tag>agent_session</Tag>.
+            Pool management CLI commands and this UI panel will be available in the 1.1.0 release.
+        </p>
+    </ChildContent>
+</Empty>

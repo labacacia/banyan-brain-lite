@@ -1,0 +1,188 @@
+@page "/agents"
+@attribute [Authorize]
+@using Banyan.Auth
+@using NSec.Cryptography
+@using NPS.NIP.Crypto
+@inject IServiceProvider Services
+
+<PageTitle>Agents — Banyan</PageTitle>
+
+@if (_ca is null)
+{
+    <Alert Type="@AlertType.Warning"
+           Message="Certificate authority not loaded"
+           Description="Start Banyan with a CA passphrase or configure an external CA to manage agent NIDs."
+           ShowIcon="true" />
+}
+else
+{
+    <Row Gutter="24">
+        <!-- Issue form -->
+        <AntDesign.Col Span="8">
+            <Card Title="Issue agent NID" Size="small">
+                <Form Model="_issue" OnFinish="HandleIssue" Layout="@FormLayout.Vertical">
+                    <FormItem Label="Agent ID">
+                        <Input @bind-Value="_issue.Id" Placeholder="my-agent" />
+                    </FormItem>
+                    <FormItem Label="Capabilities">
+                        <CheckboxGroup TValue="string" @bind-Value="_issue.Capabilities" Options="_capOptions" />
+                    </FormItem>
+                    @if (_issueError is not null)
+                    {
+                        <Alert Type="@AlertType.Error" Message="@_issueError" Style="margin-bottom: 8px;" />
+                    }
+                    <Button HtmlType="submit" Type="@ButtonType.Primary" Loading="_issuing" Block>
+                        Issue
+                    </Button>
+                </Form>
+            </Card>
+
+            @if (_issued is not null)
+            {
+                <Card Title="Issued — save the private key now" Size="small" Style="margin-top: 16px;">
+                    <Alert Type="@AlertType.Warning"
+                           Message="The private key is shown once and will not be retrievable again."
+                           Style="margin-bottom: 12px;" />
+                    <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
+                        <DescriptionsItem Label="NID"><Text Code Copyable>@_issued.Nid</Text></DescriptionsItem>
+                        <DescriptionsItem Label="Serial">@_issued.Serial</DescriptionsItem>
+                        <DescriptionsItem Label="Expires">@_issued.ExpiresAt</DescriptionsItem>
+                        <DescriptionsItem Label="Private key (base64)">
+                            <Text Code Copyable Style="word-break: break-all; font-size: 11px;">@_issued.PrivateKeyBase64</Text>
+                        </DescriptionsItem>
+                    </Descriptions>
+                    <Button Style="margin-top: 8px;" Block OnClick="@(() => _issued = null)">Done</Button>
+                </Card>
+            }
+        </AntDesign.Col>
+
+        <!-- Agent list -->
+        <AntDesign.Col Span="16">
+            <Card Title="@($"Agents ({_agents.Count})")" Size="small">
+                <Table TItem="AgentRow" DataSource="_agents" PageSize="25" Loading="_loading">
+                    <Column TData="string" Title="NID">
+                        <Text Code Style="font-size: 11px;">@context.Nid[..Math.Min(20, context.Nid.Length)]…</Text>
+                    </Column>
+                    <Column TData="string" Title="Status" Width="90">
+                        @{
+                            var (color, label) = context.Status switch
+                            {
+                                "active"  => ("success", "Active"),
+                                "expired" => ("warning", "Expired"),
+                                "revoked" => ("error",   "Revoked"),
+                                _         => ("default", context.Status),
+                            };
+                        }
+                        <Tag Color="@color">@label</Tag>
+                    </Column>
+                    <Column TData="string" Title="Issued" Width="110">
+                        @(DateTime.Parse(context.IssuedAt).ToString("yyyy-MM-dd"))
+                    </Column>
+                    <Column TData="string" Title="Expires" Width="110">
+                        @(DateTime.Parse(context.ExpiresAt).ToString("yyyy-MM-dd"))
+                    </Column>
+                    <ActionColumn Width="80">
+                        @if (context.Status == "active" && !context.AutoManaged)
+                        {
+                            <Popconfirm Title="@("Revoke this agent?")" OnConfirm="() => Revoke(context.Nid)">
+                                <Button Size="@ButtonSize.Small" Danger>Revoke</Button>
+                            </Popconfirm>
+                        }
+                        else if (context.AutoManaged)
+                        {
+                            <Tag>local</Tag>
+                        }
+                    </ActionColumn>
+                </Table>
+            </Card>
+        </AntDesign.Col>
+    </Row>
+}
+
+@code {
+    private EmbeddedNipCa? _ca;
+
+    private readonly IssueModel _issue = new();
+    private string? _issueError;
+    private bool _issuing;
+    private IssuedResult? _issued;
+
+    private List<AgentRow> _agents = [];
+    private bool _loading;
+
+    private static readonly CheckboxOption<string>[] _capOptions =
+    [
+        new CheckboxOption<string> { Label = "memory:read",  Value = "memory:read"  },
+        new CheckboxOption<string> { Label = "memory:write", Value = "memory:write" },
+        new CheckboxOption<string> { Label = "mcp",          Value = "mcp"          },
+    ];
+
+    private sealed class IssueModel
+    {
+        public string   Id           { get; set; } = "";
+        public string[] Capabilities { get; set; } = [];
+    }
+
+    private sealed record AgentRow(
+        string Nid, string Serial, string Status,
+        string IssuedAt, string ExpiresAt,
+        bool AutoManaged);
+
+    private sealed record IssuedResult(
+        string Nid, string Serial, string ExpiresAt,
+        string PrivateKeyBase64);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _ca = Services.GetService<EmbeddedNipCa>();
+        if (_ca is not null) await LoadAgents();
+    }
+
+    private async Task LoadAgents()
+    {
+        _loading = true;
+        try
+        {
+            var now  = DateTime.UtcNow;
+            var rows = await _ca!.ListAsync(revokedOnly: false);
+            _agents = rows.Select(r => new AgentRow(
+                r.Nid, r.Serial,
+                r.RevokedAt.HasValue ? "revoked" : (r.ExpiresAt < now ? "expired" : "active"),
+                r.IssuedAt.ToString("O"), r.ExpiresAt.ToString("O"),
+                false)).ToList();
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task HandleIssue()
+    {
+        _issueError = null;
+        if (string.IsNullOrWhiteSpace(_issue.Id)) { _issueError = "Agent ID is required."; return; }
+        _issuing = true;
+        try
+        {
+            var algo = SignatureAlgorithm.Ed25519;
+            using var key = Key.Create(algo, new KeyCreationParameters { ExportPolicy = KeyExportPolicies.AllowPlaintextExport });
+            var pubKey  = NipSigner.EncodePublicKey(key.PublicKey);
+            var privRaw = key.Export(KeyBlobFormat.RawPrivateKey);
+            var frame   = await _ca!.RegisterAgentAsync(_issue.Id, pubKey, _issue.Capabilities);
+
+            _issued = new IssuedResult(
+                frame.Nid, frame.Serial, frame.ExpiresAt,
+                Convert.ToBase64String(privRaw));
+
+            _issue.Id           = "";
+            _issue.Capabilities = [];
+            await LoadAgents();
+        }
+        catch (Exception ex) { _issueError = ex.Message; }
+        finally { _issuing = false; }
+    }
+
+    private async Task Revoke(string nid)
+    {
+        if (_ca is null) return;
+        await _ca.RevokeAsync(nid, "operator-initiated via portal");
+        await LoadAgents();
+    }
+}

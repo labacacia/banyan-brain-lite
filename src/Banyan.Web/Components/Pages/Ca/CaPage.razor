@@ -1,0 +1,211 @@
+@page "/ca"
+@attribute [Authorize]
+@using Banyan.Auth
+@using Banyan.Web.Endpoints
+@using NPS.NIP.Verification
+@inject IServiceProvider Services
+@inject WebOptions Opts
+@inject IHttpClientFactory HttpClientFactory
+@inject NavigationManager Navigation
+
+<PageTitle>CA — Banyan</PageTitle>
+
+<Row Gutter="24">
+    <!-- CA Info -->
+    <AntDesign.Col Span="12">
+        <Card Title="Certificate authority" Size="small" Loading="_loading">
+            @if (_info is not null)
+            {
+                <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
+                    <DescriptionsItem Label="Mode">
+                        <Tag Color="@(_info.Mode == "embedded" ? "green" : "blue")">@_info.Mode</Tag>
+                    </DescriptionsItem>
+                    <DescriptionsItem Label="CA NID">
+                        <Text Code Style="word-break: break-all; font-size: 11px;">@_info.CaNid</Text>
+                    </DescriptionsItem>
+                    @if (_info.IssuedCount.HasValue)
+                    {
+                        <DescriptionsItem Label="Issued">@_info.IssuedCount</DescriptionsItem>
+                        <DescriptionsItem Label="Revoked">@_info.RevokedCount</DescriptionsItem>
+                    }
+                    @if (_info.ServerAddress is not null)
+                    {
+                        <DescriptionsItem Label="External address">@_info.ServerAddress</DescriptionsItem>
+                    }
+                </Descriptions>
+            }
+            else if (!_loading)
+            {
+                <Alert Type="@AlertType.Warning"
+                       Message="No CA configured"
+                       Description="Start Banyan with a CA passphrase to enable the embedded CA, or configure an external CA server below." />
+            }
+        </Card>
+    </AntDesign.Col>
+
+    <!-- Server config -->
+    <AntDesign.Col Span="12">
+        <Card Title="CA server configuration" Size="small">
+            <Form Model="_config" OnFinish="SaveConfig" Layout="@FormLayout.Vertical">
+                <FormItem Label="Mode">
+                    <RadioGroup @bind-Value="_config.Type" ButtonStyle="@RadioButtonStyle.Solid">
+                        <Radio RadioButton Value="@("embedded")">Embedded</Radio>
+                        <Radio RadioButton Value="@("external")">External</Radio>
+                    </RadioGroup>
+                </FormItem>
+                @if (_config.Type == "external")
+                {
+                    <FormItem Label="External CA address">
+                        <Input @bind-Value="_config.Address" Placeholder="http://nip-ca-server:8080" />
+                    </FormItem>
+                    <Button Style="margin-bottom: 12px;" OnClick="TestConnection" Loading="_testing">
+                        Test connection
+                    </Button>
+                    @if (_probeResult is not null)
+                    {
+                        <Alert Type="@(_probeResult.Ok ? AlertType.Success : AlertType.Error)"
+                               Message="@(_probeResult.Ok ? $"Connected — CA NID: {_probeResult.CaNid}" : _probeResult.Message)"
+                               Style="margin-bottom: 12px;" />
+                    }
+                }
+                @if (_saveError is not null)
+                {
+                    <Alert Type="@AlertType.Error" Message="@_saveError" Style="margin-bottom: 8px;" />
+                }
+                @if (_saveSuccess is not null)
+                {
+                    <Alert Type="@AlertType.Success" Message="@_saveSuccess" Style="margin-bottom: 8px;" />
+                }
+                <Button HtmlType="submit" Type="@ButtonType.Primary" Loading="_saving" Block>
+                    Save
+                </Button>
+            </Form>
+        </Card>
+    </AntDesign.Col>
+</Row>
+
+@code {
+    private CaInfoVm? _info;
+    private bool _loading;
+
+    private readonly ConfigModel _config = new();
+    private string? _saveError;
+    private string? _saveSuccess;
+    private bool _saving;
+    private bool _testing;
+    private ProbeVm? _probeResult;
+
+    private sealed record CaInfoVm(
+        string CaNid, string Mode, int? IssuedCount, int? RevokedCount, string? ServerAddress);
+
+    private sealed record ProbeVm(bool Ok, string? CaNid, string? Message);
+
+    private sealed class ConfigModel
+    {
+        public string  Type    { get; set; } = "embedded";
+        public string? Address { get; set; }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _config.Type    = Opts.CaServerType.ToString().ToLowerInvariant();
+        _config.Address = Opts.ExternalCaServerAddress;
+        await LoadInfo();
+    }
+
+    private async Task LoadInfo()
+    {
+        _loading = true;
+        try
+        {
+            var ca = Services.GetService<EmbeddedNipCa>();
+            if (ca is not null && Opts.CaServerType == CaServerMode.Embedded)
+            {
+                var all = await ca.ListAsync(revokedOnly: false);
+                var rev = await ca.ListAsync(revokedOnly: true);
+                _info = new CaInfoVm(ca.CaNid, "embedded", all.Count, rev.Count, null);
+            }
+            else
+            {
+                var verifier = Services.GetService<NipVerifierOptions>();
+                if (verifier?.TrustedIssuers is { Count: > 0 } issuers)
+                {
+                    var (nid, pub) = (issuers.Keys.First(), issuers.Values.First());
+                    _info = new CaInfoVm(nid, "external", null, null, Opts.ExternalCaServerAddress);
+                }
+            }
+        }
+        finally { _loading = false; }
+    }
+
+    private async Task TestConnection()
+    {
+        if (string.IsNullOrWhiteSpace(_config.Address)) return;
+        _testing = true;
+        _probeResult = null;
+        try
+        {
+            var probe = await CaServerProbe.TestExternalAsync(_config.Address, HttpClientFactory.CreateClient());
+            _probeResult = new ProbeVm(probe.Ok, probe.CaNid, probe.Message);
+        }
+        catch (Exception ex)
+        {
+            _probeResult = new ProbeVm(false, null, ex.Message);
+        }
+        finally { _testing = false; }
+    }
+
+    private async Task SaveConfig()
+    {
+        _saveError = _saveSuccess = null;
+        _saving = true;
+        try
+        {
+            if (_config.Type == "embedded")
+            {
+                Opts.CaServerType = CaServerMode.Embedded;
+                Opts.ExternalCaServerAddress = null;
+                Opts.TrustedIssuers.Clear();
+                Opts.OpenCa = true;
+                WebConfigStore.Save(Opts);
+                _saveSuccess = "Saved. Restart Banyan to activate the embedded CA.";
+            }
+            else
+            {
+                if (string.IsNullOrWhiteSpace(_config.Address))
+                {
+                    _saveError = "Address is required for external mode.";
+                    return;
+                }
+                var probe = await CaServerProbe.TestExternalAsync(_config.Address, HttpClientFactory.CreateClient());
+                if (!probe.Ok || probe.CaNid is null || probe.PublicKey is null)
+                {
+                    _saveError = probe.Message ?? "Could not reach external CA.";
+                    return;
+                }
+                Opts.CaServerType = CaServerMode.External;
+                Opts.OpenCa = false;
+                Opts.ExternalCaServerAddress = probe.Address;
+                Opts.TrustedIssuers.Clear();
+                Opts.TrustedIssuers[probe.CaNid] = probe.PublicKey;
+
+                var runtimeOpts = Services.GetService<NipVerifierOptions>();
+                if (runtimeOpts is not null)
+                {
+                    runtimeOpts.TrustedIssuers.Clear();
+                    runtimeOpts.TrustedIssuers[probe.CaNid] = probe.PublicKey;
+                    _saveSuccess = "Saved and applied at runtime.";
+                }
+                else
+                {
+                    _saveSuccess = "Saved. Restart Banyan to activate external CA trust.";
+                }
+
+                WebConfigStore.Save(Opts);
+            }
+            await LoadInfo();
+        }
+        catch (Exception ex) { _saveError = ex.Message; }
+        finally { _saving = false; }
+    }
+}

@@ -18,6 +18,7 @@
     <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="AntDesign" Version="0.20.*" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
   </ItemGroup>

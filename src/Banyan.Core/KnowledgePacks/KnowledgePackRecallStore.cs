@@ -123,7 +123,7 @@ public sealed class KnowledgePackRecallStore(
 
             var record = JsonSerializer.Deserialize<KnowledgePackMemoryRecord>(
                 line,
-                KnowledgePackArchive.JsonLineOptions);
+                KnowledgePackArchive.JsonOptions);
             if (record is not null)
             {
                 records.Add(record);
@@ -155,7 +155,7 @@ public sealed class KnowledgePackRecallStore(
 
             var source = JsonSerializer.Deserialize<KnowledgePackSourceRecord>(
                 line,
-                KnowledgePackArchive.JsonLineOptions);
+                KnowledgePackArchive.JsonOptions);
             if (source is not null)
             {
                 sources[source.SourceId] = source;
@@ -183,7 +183,6 @@ public sealed class KnowledgePackRecallStore(
             source_path = record.SourcePath,
             source_title = source?.Title,
             source_checksum = source?.Checksum,
-            source_section_id = record.SourceSectionId,
             confidence = record.Confidence,
             kind = record.Kind,
             mounted_at = mount.MountedAt

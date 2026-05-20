@@ -1,0 +1,57 @@
+@implements IDisposable
+@inject NavigationManager Navigation
+
+<Menu Theme="MenuTheme.Dark" Mode="MenuMode.Inline" SelectedKeys="@_selectedKeys">
+    <MenuItem Key="memory" RouterLink="/">
+        <Icon Type="database" Theme="outline" />
+        <span>Memory</span>
+    </MenuItem>
+    <MenuItem Key="agents" RouterLink="/agents">
+        <Icon Type="robot" Theme="outline" />
+        <span>Agents</span>
+    </MenuItem>
+    <MenuItem Key="ca" RouterLink="/ca">
+        <Icon Type="safety-certificate" Theme="outline" />
+        <span>CA</span>
+    </MenuItem>
+    <MenuItem Key="pools" RouterLink="/pools">
+        <Icon Type="team" Theme="outline" />
+        <span>Pools</span>
+    </MenuItem>
+    <MenuItem Key="about" RouterLink="/about">
+        <Icon Type="info-circle" Theme="outline" />
+        <span>About</span>
+    </MenuItem>
+</Menu>
+
+@code {
+    private string[] _selectedKeys = [];
+
+    protected override void OnInitialized()
+    {
+        Navigation.LocationChanged += OnLocationChanged;
+        UpdateSelection();
+    }
+
+    private void OnLocationChanged(object? sender, LocationChangedEventArgs e)
+    {
+        UpdateSelection();
+        StateHasChanged();
+    }
+
+    private void UpdateSelection()
+    {
+        var path = new Uri(Navigation.Uri).AbsolutePath;
+        _selectedKeys = path switch
+        {
+            "/" => ["memory"],
+            "/agents" => ["agents"],
+            "/ca" => ["ca"],
+            "/pools" => ["pools"],
+            "/about" => ["about"],
+            _ => []
+        };
+    }
+
+    public void Dispose() => Navigation.LocationChanged -= OnLocationChanged;
+}

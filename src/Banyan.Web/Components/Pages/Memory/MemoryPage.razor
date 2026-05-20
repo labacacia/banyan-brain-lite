@@ -1,0 +1,264 @@
+@page "/"
+@attribute [Authorize]
+@inject SqliteMemoryStore Store
+
+<PageTitle>Memory — Banyan</PageTitle>
+
+<Row Gutter="24">
+    <!-- Write panel -->
+    <AntDesign.Col Span="8">
+        <Card Title="Write memory" Size="small" Style="margin-bottom: 16px;">
+            <Form Model="_write" OnFinish="HandleWrite" Layout="@FormLayout.Vertical">
+                <FormItem Label="Content">
+                    <TextArea @bind-Value="_write.Content" Rows="5" Placeholder="Memory content…" AllowClear />
+                </FormItem>
+                <FormItem Label="Namespace">
+                    <Input @bind-Value="_write.Namespace" Placeholder="default" />
+                </FormItem>
+                @if (_writeError is not null)
+                {
+                    <Alert Type="@AlertType.Error" Message="@_writeError" Style="margin-bottom: 8px;" />
+                }
+                @if (_writeSuccess is not null)
+                {
+                    <Alert Type="@AlertType.Success" Message="@_writeSuccess" Style="margin-bottom: 8px;" />
+                }
+                <Button HtmlType="submit" Type="@ButtonType.Primary" Loading="_writing" Block>
+                    Write
+                </Button>
+            </Form>
+        </Card>
+
+        <!-- Search panel -->
+        <Card Title="Search" Size="small">
+            <Form Model="_search" OnFinish="HandleSearch" Layout="@FormLayout.Vertical">
+                <FormItem Label="Query">
+                    <Input @bind-Value="_search.Query" Placeholder="Search memories…" />
+                </FormItem>
+                <Row Gutter="8">
+                    <AntDesign.Col Span="12">
+                        <FormItem Label="Mode">
+                            <Select TItemValue="string" TItem="string"
+                                    @bind-Value="_search.Mode" DefaultValue="@("hybrid")">
+                                <SelectOption TItemValue="string" TItem="string" Value="@("hybrid")" Label="Hybrid" />
+                                <SelectOption TItemValue="string" TItem="string" Value="@("lexical")" Label="Lexical" />
+                                <SelectOption TItemValue="string" TItem="string" Value="@("vector")"  Label="Vector"  />
+                            </Select>
+                        </FormItem>
+                    </AntDesign.Col>
+                    <AntDesign.Col Span="12">
+                        <FormItem Label="K">
+                            <AntDesign.InputNumber @bind-Value="_search.K" Min="1" Max="100" Style="width: 100%;" />
+                        </FormItem>
+                    </AntDesign.Col>
+                </Row>
+                <FormItem Label="Namespace (optional)">
+                    <Input @bind-Value="_search.Namespace" Placeholder="all" />
+                </FormItem>
+                <Button HtmlType="submit" Type="@ButtonType.Default" Loading="_searching" Block>
+                    Search
+                </Button>
+            </Form>
+        </Card>
+    </AntDesign.Col>
+
+    <!-- Results panel -->
+    <AntDesign.Col Span="16">
+        <Card Title="@($"Results ({_hits.Count})")" Size="small" Loading="_searching">
+            @if (_hits.Count == 0 && !_searching)
+            {
+                <Empty Description="@("No results — run a search or write a memory")" Simple />
+            }
+            else
+            {
+                <Table TItem="SearchHitVm" DataSource="_hits" PageSize="25" HidePagination="_hits.Count <= 25">
+                    <Column TData="string" Title="Content">
+                        <span title="@context.Content">@Truncate(context.Content, 100)</span>
+                    </Column>
+                    <Column TData="string" Title="Namespace" Width="120">@context.Namespace</Column>
+                    <Column TData="double" Title="Score" Width="80">@context.Score.ToString("F3")</Column>
+                    <Column TData="DateTimeOffset" Title="Updated" Width="120">
+                        @context.UpdatedAt.LocalDateTime.ToString("MM-dd HH:mm")
+                    </Column>
+                    <ActionColumn Width="70">
+                        <Button Size="@ButtonSize.Small" OnClick="() => OpenDetail(context)">Detail</Button>
+                    </ActionColumn>
+                </Table>
+            }
+        </Card>
+    </AntDesign.Col>
+</Row>
+
+<!-- Detail Drawer -->
+<Drawer Visible="_drawerVisible"
+        Title="@("Memory detail")"
+        Width="640"
+        OnClose="CloseDrawer">
+    @if (_detail is not null)
+    {
+        <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small" Style="margin-bottom: 16px;">
+            <DescriptionsItem Label="ID">
+                <Text Code>@_detail.MemoryId</Text>
+            </DescriptionsItem>
+            <DescriptionsItem Label="Namespace">
+                <Tag>@_detail.Namespace</Tag>
+            </DescriptionsItem>
+            <DescriptionsItem Label="Created">@_detail.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
+            <DescriptionsItem Label="Updated">@_detail.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
+        </Descriptions>
+
+        <Card Size="small" Style="margin-bottom: 16px;">
+            <p style="white-space: pre-wrap; margin: 0;">@_detail.Content</p>
+        </Card>
+
+        <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
+            <Popconfirm Title="Forget this memory?" OnConfirm="ForgetCurrent">
+                <Button Danger Size="@ButtonSize.Small" Loading="_forgetting">Forget</Button>
+            </Popconfirm>
+        </div>
+
+        @if (_trace.Count > 0)
+        {
+            <h4 style="margin-bottom: 8px;">Event history</h4>
+            <AntDesign.Timeline>
+                @foreach (var ev in _trace)
+                {
+                    <TimelineItem>
+                        <Tag>@ev.TypeName</Tag>
+                        <span style="margin-left: 8px; font-size: 12px; color: rgba(0,0,0,0.45);">
+                            @ev.OccurredAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
+                        </span>
+                        @if (ev.Content is not null)
+                        {
+                            <p style="margin: 4px 0 0; font-size: 13px; white-space: pre-wrap;">@Truncate(ev.Content, 200)</p>
+                        }
+                    </TimelineItem>
+                }
+            </AntDesign.Timeline>
+        }
+    }
+</Drawer>
+
+@code {
+    // ── Write ───────────────────────────────────────────────────────────────────
+    private readonly WriteModel _write = new();
+    private string? _writeError;
+    private string? _writeSuccess;
+    private bool _writing;
+
+    private sealed class WriteModel
+    {
+        public string Content   { get; set; } = "";
+        public string Namespace { get; set; } = "default";
+    }
+
+    private async Task HandleWrite()
+    {
+        _writeError = _writeSuccess = null;
+        if (string.IsNullOrWhiteSpace(_write.Content)) { _writeError = "Content is required."; return; }
+        _writing = true;
+        try
+        {
+            var req = new WriteRequest(_write.Content, _write.Namespace ?? "default");
+            var id = await Store.WriteAsync(req);
+            _writeSuccess = $"Saved as {id}";
+            _write.Content = "";
+        }
+        catch (Exception ex) { _writeError = ex.Message; }
+        finally { _writing = false; }
+    }
+
+    // ── Search ──────────────────────────────────────────────────────────────────
+    private readonly SearchModel _search = new();
+    private List<SearchHitVm> _hits = [];
+    private bool _searching;
+
+    private sealed class SearchModel
+    {
+        public string  Query     { get; set; } = "";
+        public string  Mode      { get; set; } = "hybrid";
+        public string? Namespace { get; set; }
+        public int     K         { get; set; } = 10;
+    }
+
+    private async Task HandleSearch()
+    {
+        if (string.IsNullOrWhiteSpace(_search.Query)) return;
+        _searching = true;
+        _hits = [];
+        try
+        {
+            var mode = _search.Mode switch
+            {
+                "lexical" => SearchMode.Lexical,
+                "vector"  => SearchMode.Vector,
+                _         => SearchMode.Hybrid,
+            };
+            var query = new SearchQuery(_search.Query, _search.K, _search.Namespace, mode);
+            await foreach (var h in Store.SearchAsync(query))
+            {
+                _hits.Add(new SearchHitVm(
+                    h.Memory.Id.ToString(), h.Memory.Namespace, h.Memory.Content,
+                    h.Score, h.Memory.CreatedAt, h.Memory.UpdatedAt));
+            }
+        }
+        catch (Exception ex) { _writeError = ex.Message; }
+        finally { _searching = false; }
+    }
+
+    private sealed record SearchHitVm(
+        string MemoryId, string Namespace, string Content,
+        double Score, DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+    // ── Detail Drawer ───────────────────────────────────────────────────────────
+    private bool _drawerVisible;
+    private MemoryDetailVm? _detail;
+    private List<EventVm> _trace = [];
+    private bool _forgetting;
+
+    private sealed record MemoryDetailVm(
+        string MemoryId, string Namespace, string Content,
+        DateTimeOffset CreatedAt, DateTimeOffset UpdatedAt);
+
+    private sealed record EventVm(
+        string TypeName, string? Content, DateTimeOffset OccurredAt);
+
+    private async Task OpenDetail(SearchHitVm row)
+    {
+        if (!Guid.TryParse(row.MemoryId, out var guid)) return;
+        var m = await Store.GetAsync(new MemoryId(guid));
+        if (m is null) return;
+
+        _detail = new MemoryDetailVm(m.Id.ToString(), m.Namespace, m.Content, m.CreatedAt, m.UpdatedAt);
+        _trace  = [];
+        await foreach (var ev in Store.TraceAsync(new MemoryId(guid)))
+            _trace.Add(new EventVm(ev.Type.ToString(), ev.Content, ev.OccurredAt));
+
+        _drawerVisible = true;
+    }
+
+    private void CloseDrawer()
+    {
+        _drawerVisible = false;
+        _detail = null;
+        _trace  = [];
+    }
+
+    private async Task ForgetCurrent()
+    {
+        if (_detail is null || !Guid.TryParse(_detail.MemoryId, out var guid)) return;
+        _forgetting = true;
+        try
+        {
+            await Store.ForgetAsync(new MemoryId(guid), "operator-initiated via portal");
+            CloseDrawer();
+            // Re-run last search to refresh results
+            await HandleSearch();
+        }
+        catch (Exception ex) { _writeError = ex.Message; }
+        finally { _forgetting = false; }
+    }
+
+    private static string Truncate(string s, int max) =>
+        s.Length <= max ? s : s[..max] + "…";
+}

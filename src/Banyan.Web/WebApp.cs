@@ -7,6 +7,7 @@ using Banyan.Identity.Extensions;
 using Banyan.Lite;
 using Banyan.Mcp;
 using Banyan.Node.Auth;
+using Banyan.Web.Components;
 using Banyan.Web.Endpoints;
 using Banyan.Web.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -27,9 +28,9 @@ public static class WebApp
     /// </summary>
     public static async Task RunAsync(WebOptions opts, string[]? rawArgs = null, CancellationToken ct = default)
     {
-        // ContentRoot must be Banyan.Web.dll's directory (so wwwroot/ is found) regardless of which
-        // process invoked us — when called from `banyan web`, Banyan.Web.dll lives in CLI's bin/.
-        var contentRoot = Path.GetDirectoryName(typeof(WebApp).Assembly.Location)!;
+        // AppContext.BaseDirectory is the directory of the host executable regardless of whether
+        // the app is single-file or multi-file, replacing Assembly.Location which is empty in SFAs.
+        var contentRoot = AppContext.BaseDirectory;
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
             Args            = rawArgs ?? Array.Empty<string>(),
@@ -133,6 +134,8 @@ public static class WebApp
                 "/api/auth/login", "/api/auth/logout", "/api/auth/me",
                 "/.nwm", "/.schema",
                 "/v1/ca/cert", "/v1/crl", "/.well-known/nps-ca",
+                // Blazor Server infrastructure
+                "/_blazor", "/_framework",
             ],
         });
 
@@ -193,6 +196,10 @@ public static class WebApp
         {
             authz.AddPolicy("admin", p => p.RequireRole("admin", "ADMIN"));
         });
+        builder.Services.AddRazorComponents()
+            .AddInteractiveServerComponents();
+        builder.Services.AddAntDesign();
+        builder.Services.AddCascadingAuthenticationState();
         builder.Services.AddHttpContextAccessor();
         builder.Services
             .AddSingleton(new McpDefaults("default"))
@@ -211,17 +218,16 @@ public static class WebApp
         app.Use(async (ctx, next) =>
         {
             if (HttpMethods.IsGet(ctx.Request.Method)
-                && (ctx.Request.Path == "/" || ctx.Request.Path == "/index.html" || ctx.Request.Path == "/login.html")
+                && ctx.Request.Path == "/"
                 && !await AdminBootstrapper.HasAdminAsync(ctx.RequestServices.GetRequiredService<SqliteIdentityStore>(), ctx.RequestAborted))
             {
-                ctx.Response.Redirect("/setup.html");
+                ctx.Response.Redirect("/setup");
                 return;
             }
 
             await next();
         });
 
-        app.UseDefaultFiles();
         app.UseStaticFiles();
 
         // Cookie-to-bearer lifter must run BEFORE UseAuthentication so the JWT validator
@@ -250,6 +256,9 @@ public static class WebApp
             AgentEndpoints.Map(app, requireAdmin: true);
             NipCaEndpoints.Map(app);
         }
+
+        app.MapRazorComponents<App>()
+            .AddInteractiveServerRenderMode();
 
         Console.WriteLine($"Banyan demo web UI listening on {opts.Urls}");
         Console.WriteLine($"  memory.db : {memoryDb}");

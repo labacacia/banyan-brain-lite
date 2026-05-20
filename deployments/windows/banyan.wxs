@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Banyan Lite — Windows MSI installer
+  Built with WiX Toolset v4/v7.
+  Run build-installer.cmd on a Windows machine (or Windows CI runner) to produce the .msi.
+
+  Usage:
+    wix build banyan.wxs -b ..\..\publish\win-x64 -o banyan-lite-$(VERSION).msi
+
+  Upgrades: MajorUpgrade handles in-place upgrades — just install the new MSI.
+  Uninstall: Programs and Features → Banyan Lite → Uninstall.
+-->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="Banyan Lite"
+           Manufacturer="INNO LOTUS PTY LTD"
+           Version="!(bind.FileVersion.banyan.exe)"
+           UpgradeCode="E7F3A2B1-4C6D-4E8F-A9B0-1C2D3E4F5A6B"
+           Compressed="yes"
+           InstallerVersion="500"
+           Scope="perMachine">
+
+    <!-- UI -->
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLDIR" />
+    <WixVariable Id="WixUILicenseRtf" Value="license.rtf" />
+
+    <!-- Upgrade policy: remove older version, block downgrade -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Banyan Lite is already installed." />
+
+    <!-- Embed all files into the MSI cabinet -->
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- ── Directory layout ──────────────────────────────────────────── -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLDIR" Name="Banyan Lite" />
+    </StandardDirectory>
+
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="BanyanMenuDir" Name="Banyan Lite" />
+    </StandardDirectory>
+
+    <!-- ── Components ────────────────────────────────────────────────── -->
+
+    <!-- Main executable -->
+    <Component Id="BanyanExe" Directory="INSTALLDIR" Guid="A1B2C3D4-E5F6-7890-ABCD-EF1234567890">
+      <File Id="banyan.exe" Source="banyan.exe" KeyPath="yes" />
+    </Component>
+
+    <!-- Runtime config files (needed by embedded ASP.NET host) -->
+    <Component Id="NodeRuntimeConfig" Directory="INSTALLDIR" Guid="B2C3D4E5-F6A7-8901-BCDE-F12345678901">
+      <File Id="Banyan.Node.runtimeconfig.json" Source="Banyan.Node.runtimeconfig.json" KeyPath="yes" />
+    </Component>
+
+    <Component Id="WebRuntimeConfig" Directory="INSTALLDIR" Guid="C3D4E5F6-A7B8-9012-CDEF-123456789012">
+      <File Id="Banyan.Web.runtimeconfig.json" Source="Banyan.Web.runtimeconfig.json" KeyPath="yes" />
+    </Component>
+
+    <!-- ONNX runtime import libraries -->
+    <Component Id="OnnxLibs" Directory="INSTALLDIR" Guid="D4E5F6A7-B8C9-0123-DEF0-234567890123">
+      <File Id="onnxruntime.lib" Source="onnxruntime.lib" KeyPath="yes" />
+      <File Id="onnxruntime_providers_shared.lib" Source="onnxruntime_providers_shared.lib" />
+    </Component>
+
+    <!-- System PATH entry -->
+    <Component Id="EnvironmentPath" Directory="INSTALLDIR" Guid="E5F6A7B8-C9D0-1234-EF01-345678901234">
+      <RegistryValue Root="HKLM"
+                     Key="SOFTWARE\BanyanBrain\Lite"
+                     Name="InstallDir"
+                     Type="string"
+                     Value="[INSTALLDIR]"
+                     KeyPath="yes" />
+      <Environment Id="BanyanPath"
+                   Action="set"
+                   Part="last"
+                   Name="PATH"
+                   Value="[INSTALLDIR]"
+                   System="yes"
+                   Permanent="no" />
+    </Component>
+
+    <!-- Start Menu shortcut: "Banyan Web" launches the local portal -->
+    <Component Id="StartMenuShortcuts" Directory="BanyanMenuDir" Guid="F6A7B8C9-D0E1-2345-F012-456789012345">
+      <Shortcut Id="BanyanWebShortcut"
+                Name="Banyan Web"
+                Description="Start the Banyan Lite local portal"
+                Target="[INSTALLDIR]banyan.exe"
+                Arguments="web"
+                WorkingDirectory="INSTALLDIR" />
+      <Shortcut Id="BanyanUninstallShortcut"
+                Name="Uninstall Banyan Lite"
+                Target="[SystemFolder]msiexec.exe"
+                Arguments="/x [ProductCode]" />
+      <RemoveFolder Id="BanyanMenuDirRemove" On="uninstall" />
+      <RegistryValue Root="HKCU"
+                     Key="SOFTWARE\BanyanBrain\Lite\Shortcuts"
+                     Name="installed"
+                     Type="integer"
+                     Value="1"
+                     KeyPath="yes" />
+    </Component>
+
+    <!-- ── Feature ───────────────────────────────────────────────────── -->
+    <Feature Id="ProductFeature" Title="Banyan Lite" Level="1">
+      <ComponentRef Id="BanyanExe" />
+      <ComponentRef Id="NodeRuntimeConfig" />
+      <ComponentRef Id="WebRuntimeConfig" />
+      <ComponentRef Id="OnnxLibs" />
+      <ComponentRef Id="EnvironmentPath" />
+      <ComponentRef Id="StartMenuShortcuts" />
+    </Feature>
+
+  </Package>
+</Wix>

@@ -1,0 +1,68 @@
+@page "/login"
+@attribute [AllowAnonymous]
+@layout BlankLayout
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<div style="width: 360px;">
+    <Card Bordered>
+        <div style="text-align: center; margin-bottom: 24px;">
+            <h2 style="font-size: 22px; font-weight: 700; margin: 0;">Banyan</h2>
+            <p style="color: rgba(0,0,0,0.45); margin: 4px 0 0;">Sign in to your node</p>
+        </div>
+
+        <Form Model="_model" OnFinish="HandleLogin" Layout="@FormLayout.Vertical">
+            <FormItem Label="Username">
+                <Input @bind-Value="_model.Username" Placeholder="admin" />
+            </FormItem>
+            <FormItem Label="Password">
+                <InputPassword @bind-Value="_model.Password" />
+            </FormItem>
+            @if (_error is not null)
+            {
+                <Alert Type="@AlertType.Error" Message="@_error" Style="margin-bottom: 16px;" />
+            }
+            <FormItem>
+                <Button HtmlType="submit" Type="@ButtonType.Primary" Loading="_loading" Block>
+                    Sign in
+                </Button>
+            </FormItem>
+        </Form>
+    </Card>
+</div>
+
+@code {
+    private readonly LoginModel _model = new();
+    private string? _error;
+    private bool _loading;
+
+    private sealed class LoginModel
+    {
+        public string Username { get; set; } = "";
+        public string Password { get; set; } = "";
+    }
+
+    private async Task HandleLogin()
+    {
+        _error = null;
+        _loading = true;
+        try
+        {
+            var result = await JS.InvokeAsync<LoginResult>("banyan.login", _model.Username, _model.Password);
+            if (result.Ok)
+                Navigation.NavigateTo("/", forceLoad: true);
+            else
+                _error = result.Message ?? "Sign-in failed.";
+        }
+        catch (Exception ex)
+        {
+            _error = $"Network error: {ex.Message}";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private sealed record LoginResult(bool Ok, string? Message);
+}

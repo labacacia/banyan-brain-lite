@@ -1,0 +1,46 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<AntDesign.Layout Style="min-height: 100vh;">
+    <Sider Collapsible @bind-Collapsed="_collapsed" Width="240" CollapsedWidth="80"
+           Style="overflow: auto; height: 100vh; position: fixed; left: 0; top: 0; bottom: 0;">
+        <div style="height: 32px; margin: 16px; overflow: hidden; display: flex; align-items: center; justify-content: center;">
+            @if (!_collapsed)
+            {
+                <span style="color: #fff; font-weight: 600; font-size: 16px; letter-spacing: 1px;">Banyan</span>
+            }
+            else
+            {
+                <span style="color: #fff; font-size: 18px; font-weight: 700;">B</span>
+            }
+        </div>
+        <NavMenu />
+    </Sider>
+    <AntDesign.Layout Style="@($"margin-left: {(_collapsed ? 80 : 240)}px; transition: margin-left 0.2s;")">
+        <Header Style="background: #fff; padding: 0 24px; display: flex; align-items: center; justify-content: flex-end; box-shadow: 0 1px 4px rgba(0,21,41,0.08);">
+            <AuthorizeView>
+                <Authorized>
+                    <span style="margin-right: 12px; color: rgba(0,0,0,0.65);">
+                        <Icon Type="user" Theme="outline" Style="margin-right: 4px;" />
+                        @context.User.Identity?.Name
+                    </span>
+                    <Button Type="@ButtonType.Link" OnClick="Logout" Danger>Sign out</Button>
+                </Authorized>
+            </AuthorizeView>
+        </Header>
+        <Content Style="padding: 24px; background: #f0f2f5; min-height: calc(100vh - 64px);">
+            @Body
+        </Content>
+    </AntDesign.Layout>
+</AntDesign.Layout>
+
+@code {
+    private bool _collapsed;
+
+    private async Task Logout()
+    {
+        await JS.InvokeVoidAsync("banyan.logout");
+        Navigation.NavigateTo("/login", forceLoad: true);
+    }
+}
