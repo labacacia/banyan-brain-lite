@@ -53,16 +53,50 @@ public sealed class FileKnowledgePackMountRegistry
         string packPath,
         string @namespace,
         string? mountedBy = null,
+        string? passphrase = null,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(packPath);
         ArgumentException.ThrowIfNullOrWhiteSpace(@namespace);
 
         var fullPackPath = Path.GetFullPath(packPath);
-        await using var packStream = File.OpenRead(fullPackPath);
-        var manifest = await KnowledgePackArchive.ReadManifestAsync(packStream, cancellationToken).ConfigureAwait(false);
-        packStream.Position = 0;
-        var checksum = "sha256:" + Convert.ToHexString(await SHA256.HashDataAsync(packStream, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();
+
+        // Read manifest from outer archive (always plaintext, even for encrypted packs).
+        KnowledgePackManifest manifest;
+        await using (var peekStream = File.OpenRead(fullPackPath))
+            manifest = await KnowledgePackArchive.ReadManifestAsync(peekStream, cancellationToken).ConfigureAwait(false);
+
+        // If encrypted: validate passphrase and write decrypted copy to local cache.
+        // The registry points to the decrypted copy so KnowledgePackRecallStore can
+        // read it without needing the passphrase again at search time.
+        string resolvedPackPath = fullPackPath;
+        if (manifest.Encryption is not null)
+        {
+            if (string.IsNullOrEmpty(passphrase))
+                throw new ArgumentException("Pack is encrypted — passphrase is required to mount.", nameof(passphrase));
+
+            var cacheDir = Path.Combine(Path.GetDirectoryName(path)!, "cache",
+                manifest.PackId, manifest.Version);
+            Directory.CreateDirectory(cacheDir);
+            var cachePath = Path.Combine(cacheDir, Path.GetFileName(fullPackPath));
+
+            await using var encStream = File.OpenRead(fullPackPath);
+            using var decrypted = await KnowledgePackArchive.DecryptAsync(encStream, passphrase, cancellationToken).ConfigureAwait(false);
+            await using var cacheFile = File.Create(cachePath);
+            decrypted.Position = 0;
+            await decrypted.CopyToAsync(cacheFile, cancellationToken).ConfigureAwait(false);
+
+            // Re-read manifest from decrypted inner archive (canonical form, no encryption field).
+            await cacheFile.FlushAsync(cancellationToken).ConfigureAwait(false);
+            cacheFile.Position = 0;
+            manifest = await KnowledgePackArchive.ReadManifestAsync(cacheFile, cancellationToken).ConfigureAwait(false);
+
+            resolvedPackPath = cachePath;
+        }
+
+        await using var packStream = File.OpenRead(resolvedPackPath);
+        var checksum = "sha256:" + Convert.ToHexString(
+            await SHA256.HashDataAsync(packStream, cancellationToken).ConfigureAwait(false)).ToLowerInvariant();
 
         var records = await LoadAsync(cancellationToken).ConfigureAwait(false);
         var existingIndex = records.FindIndex(r =>
@@ -75,7 +109,7 @@ public sealed class FileKnowledgePackMountRegistry
             Namespace = @namespace,
             PackId = manifest.PackId,
             PackVersion = manifest.Version,
-            PackPath = fullPackPath,
+            PackPath = resolvedPackPath,
             PackChecksum = checksum,
             PackName = manifest.Name,
             PackType = manifest.PackType,

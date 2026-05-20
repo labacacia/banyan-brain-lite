@@ -74,10 +74,14 @@ internal static class PackCommand
                 return 0;
             }
 
-            var outPath = CommandContext.ExpandHome(output);
+            var outPath    = CommandContext.ExpandHome(output);
+            var passphrase = CommandContext.GetOption(args, "--passphrase");
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
             await using var stream = File.Create(outPath);
-            await KnowledgePackArchive.WriteAsync(stream, result.Manifest, result.Entries);
+            if (!string.IsNullOrEmpty(passphrase))
+                await KnowledgePackArchive.WriteEncryptedAsync(stream, result.Manifest, result.Entries, passphrase);
+            else
+                await KnowledgePackArchive.WriteAsync(stream, result.Manifest, result.Entries);
 
             PrintBuildSummary(result, outPath);
             return 0;
@@ -120,6 +124,17 @@ internal static class PackCommand
             Console.WriteLine($"permissions:   recall={manifest.Permissions.AllowRecall}, export={manifest.Permissions.AllowExport}, finetune={manifest.Permissions.AllowFinetune}");
             Console.WriteLine($"checksums:     {manifest.Checksums.Count}");
             Console.WriteLine($"extensions:    {manifest.Extensions.Count}");
+            if (manifest.Encryption is { } enc)
+            {
+                Console.WriteLine($"encrypted:     yes");
+                Console.WriteLine($"  algorithm:   {enc.Algorithm}");
+                Console.WriteLine($"  kdf:         {enc.Kdf}");
+                Console.WriteLine($"  iterations:  {enc.Iterations}");
+            }
+            else
+            {
+                Console.WriteLine($"encrypted:     no");
+            }
             return 0;
         }
         catch (Exception ex) when (ex is KnowledgePackValidationException
@@ -154,11 +169,17 @@ internal static class PackCommand
             var result = await registry.MountAsync(
                 CommandContext.ExpandHome(pack),
                 @namespace,
-                CommandContext.GetOption(args, "--mounted-by"));
+                mountedBy: CommandContext.GetOption(args, "--mounted-by"),
+                passphrase: CommandContext.GetOption(args, "--passphrase"));
 
             Console.WriteLine(result.Created ? "mounted:      created" : "mounted:      already exists");
             PrintMountRecord(result.Record);
             return 0;
+        }
+        catch (KnowledgePackWrongPassphraseException ex)
+        {
+            Console.Error.WriteLine($"banyan pack mount: wrong passphrase — {ex.Message}");
+            return 2;
         }
         catch (Exception ex) when (ex is KnowledgePackValidationException
                                    or IOException
@@ -291,11 +312,13 @@ internal static class PackCommand
                              --content-types CSV    default: document
                              --target-scopes CSV    default: user,agent
                              --dry-run              print summary without writing
+                             --passphrase PASS      encrypt with AES-256-GCM + PBKDF2-SHA256
               inspect PATH Inspect a .banyanpack manifest
               mount PATH   Mount a .banyanpack into a namespace
                              --namespace NS         required
                              --registry PATH        default: ~/.banyan/knowledge-packs/mounts.json
                              --mounted-by ID
+                             --passphrase PASS      required for encrypted packs
               list         List mounted packs
                              --namespace NS
                              --registry PATH

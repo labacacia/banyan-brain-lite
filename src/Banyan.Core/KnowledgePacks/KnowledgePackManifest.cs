@@ -56,6 +56,13 @@ public sealed record KnowledgePackManifest
     [JsonPropertyName("extensions")]
     public IReadOnlyDictionary<string, JsonElement> Extensions { get; init; } =
         new Dictionary<string, JsonElement>(StringComparer.Ordinal);
+
+    /// <summary>
+    /// Present only on encrypted packs. The outer archive keeps this in plaintext so
+    /// callers can read algorithm/KDF parameters without a passphrase.
+    /// </summary>
+    [JsonPropertyName("encryption")]
+    public KnowledgePackEncryptionMetadata? Encryption { get; init; }
 }
 
 public sealed record KnowledgePackPermissions
@@ -80,4 +87,23 @@ public sealed record KnowledgePackIndexes
 
     [JsonPropertyName("graph")]
     public bool Graph { get; init; }
+}
+
+public sealed record KnowledgePackEncryptionMetadata
+{
+    /// <summary>"aes-256-gcm"</summary>
+    [JsonPropertyName("algorithm")]
+    public required string Algorithm { get; init; }
+
+    /// <summary>"pbkdf2-sha256"</summary>
+    [JsonPropertyName("kdf")]
+    public required string Kdf { get; init; }
+
+    /// <summary>Base64-encoded random salt used for key derivation.</summary>
+    [JsonPropertyName("salt")]
+    public required string Salt { get; init; }
+
+    /// <summary>PBKDF2 iteration count.</summary>
+    [JsonPropertyName("iterations")]
+    public required int Iterations { get; init; }
 }

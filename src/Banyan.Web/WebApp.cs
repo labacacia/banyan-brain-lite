@@ -1,5 +1,6 @@
 using Banyan.Auth;
 using Banyan.Core;
+using Banyan.Core.KnowledgePacks;
 using Banyan.Embedders;
 using Banyan.Identity;
 using Banyan.Identity.Crypto;
@@ -48,9 +49,14 @@ public static class WebApp
             $"Data Source={memoryDb}", embedder, opts.SqliteVecLibPath, ct);
         builder.Services.AddSingleton(embedder);
         builder.Services.AddSingleton(memoryStore);
-        builder.Services.AddSingleton<IMemoryStore>(memoryStore);
         if (memoryStore.VecEnabled)
             Console.WriteLine($"[store] sqlite-vec ANN index ready: embeddings_vec");
+
+        // Knowledge Pack: registry + recall store wrapping the raw memory store.
+        Directory.CreateDirectory(WebOptions.ExpandHome(opts.PackStorePath));
+        var packRegistry = new FileKnowledgePackMountRegistry(WebOptions.ExpandHome(opts.PackRegistryPath));
+        builder.Services.AddSingleton(packRegistry);
+        builder.Services.AddSingleton<IMemoryStore>(new KnowledgePackRecallStore(memoryStore, packRegistry));
 
         LocalAgentIdentity localAgent = LocalAgentIdentity.Empty;
         if (opts.CaServerType == CaServerMode.External)
@@ -247,8 +253,9 @@ public static class WebApp
 
         app.MapGet("/api/health", () => Results.Ok(new { ok = true, version = "P1.5-demo" }));
         app.MapMcp("/mcp");
-        MemoryEndpoints  .Map(app);
-        IdentityEndpoints.Map(app);
+        MemoryEndpoints        .Map(app);
+        KnowledgePackEndpoints .Map(app);
+        IdentityEndpoints      .Map(app);
         CaEndpoints      .Map(app, requireAdmin: true);
         // Agent + NIP-CA HTTP endpoints depend on the CA being loaded (DI activation fails otherwise).
         if (app.Services.GetService<EmbeddedNipCa>() is not null)

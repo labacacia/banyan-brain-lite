@@ -14,6 +14,10 @@
         <Icon Type="safety-certificate" Theme="outline" />
         <span>CA</span>
     </MenuItem>
+    <MenuItem Key="packs" RouterLink="/packs">
+        <Icon Type="book" Theme="outline" />
+        <span>Packs</span>
+    </MenuItem>
     <MenuItem Key="pools" RouterLink="/pools">
         <Icon Type="team" Theme="outline" />
         <span>Pools</span>
@@ -47,6 +51,7 @@
             "/" => ["memory"],
             "/agents" => ["agents"],
             "/ca" => ["ca"],
+            "/packs" => ["packs"],
             "/pools" => ["pools"],
             "/about" => ["about"],
             _ => []

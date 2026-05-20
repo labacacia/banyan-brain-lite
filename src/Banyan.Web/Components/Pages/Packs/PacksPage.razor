@@ -1,0 +1,377 @@
+@page "/packs"
+@attribute [Authorize]
+@using Banyan.Core.KnowledgePacks
+@inject FileKnowledgePackMountRegistry Registry
+@inject WebOptions Opts
+@inject IJSRuntime JS
+
+<PageTitle>Packs — Banyan</PageTitle>
+
+<Row Gutter="24">
+    <!-- ── Left: Upload + Installed ─────────────────────────────────────── -->
+    <AntDesign.Col Span="10">
+
+        <!-- Upload -->
+        <Card Title="Upload pack" Size="small" Style="margin-bottom: 16px;">
+            <InputFile id="packFileInput" OnChange="HandleFileSelected" accept=".banyanpack" style="display:none" />
+            <label for="packFileInput" style="cursor:pointer; display:block;">
+                <div style="border: 1px dashed #d9d9d9; border-radius: 6px; padding: 20px; text-align: center;">
+                    <Icon Type="inbox" Theme="outline" Style="font-size: 32px; color: #40a9ff;" />
+                    <div style="margin-top: 8px; color: rgba(0,0,0,0.65);">
+                        Click to select a <Text Code>.banyanpack</Text> file
+                    </div>
+                </div>
+            </label>
+            @if (_uploading)
+            {
+                <div style="margin-top: 8px; text-align: center;">
+                    <Spin Tip="Uploading…" />
+                </div>
+            }
+            @if (_uploadError is not null)
+            {
+                <Alert Type="@AlertType.Error" Message="@_uploadError" Style="margin-top: 8px;" />
+            }
+            @if (_uploadSuccess is not null)
+            {
+                <Alert Type="@AlertType.Success" Message="@_uploadSuccess" Style="margin-top: 8px;" />
+            }
+        </Card>
+
+        <!-- Installed packs -->
+        <Card Title="@($"Installed ({_installed.Count})")" Size="small" Loading="_loadingInstalled">
+            @if (_installed.Count == 0 && !_loadingInstalled)
+            {
+                <Empty Description="@("No packs installed yet")" />
+            }
+            else
+            {
+                <AntList TItem="PackFileDto" DataSource="_installed" ItemLayout="ListItemLayout.Horizontal">
+                    <ListItem>
+                        <ChildContent>
+                            <ListItemMeta
+                                Title="@(context.Name ?? context.FileName)"
+                                Description="@(context.PackId is not null
+                                    ? $"{context.PackId} v{context.Version} — {context.SizeBytes / 1024} KB{(context.Encrypted ? " [encrypted]" : "")}"
+                                    : context.FileName)" />
+                        </ChildContent>
+                        <Extra>
+                            <Button Size="@ButtonSize.Small"
+                                    Type="@ButtonType.Primary"
+                                    Ghost
+                                    OnClick="@(() => OpenMountModal(context))">
+                                Mount
+                            </Button>
+                        </Extra>
+                    </ListItem>
+                </AntList>
+            }
+        </Card>
+
+    </AntDesign.Col>
+
+    <!-- ── Right: Mounted packs ──────────────────────────────────────────── -->
+    <AntDesign.Col Span="14">
+        <Card Title="@($"Mounted ({_mounts.Count})")" Size="small" Loading="_loadingMounts">
+            <Table TItem="MountedPackDto" DataSource="_mounts" PageSize="20" Loading="_loadingMounts">
+                <Column TData="string" Title="Pack">
+                    <div><Text Strong>@context.PackName</Text></div>
+                    <div style="font-size: 11px; color: rgba(0,0,0,0.45);">@context.PackId v@context.PackVersion</div>
+                </Column>
+                <Column TData="string" Title="Namespace" Width="120">
+                    <Text Code Style="font-size: 11px;">@context.Namespace</Text>
+                </Column>
+                <Column TData="string" Title="Type" Width="90">
+                    <Tag>@context.PackType</Tag>
+                </Column>
+                <Column TData="bool" Title="Status" Width="80">
+                    @if (context.Enabled)
+                    {
+                        <Tag Color="success">Active</Tag>
+                    }
+                    else
+                    {
+                        <Tag Color="default">Disabled</Tag>
+                    }
+                </Column>
+                <ActionColumn Width="110">
+                    <Button Size="@ButtonSize.Small"
+                            Style="margin-right: 4px;"
+                            OnClick="@(() => OpenInspectDrawer(context))">
+                        Inspect
+                    </Button>
+                    <Popconfirm Title="@("Unmount this pack?")"
+                                OnConfirm="@(() => Unmount(context.PackId, context.Namespace, context.PackVersion))">
+                        <Button Size="@ButtonSize.Small" Danger>Unmount</Button>
+                    </Popconfirm>
+                </ActionColumn>
+            </Table>
+        </Card>
+    </AntDesign.Col>
+</Row>
+
+<!-- ── Mount modal ──────────────────────────────────────────────────────── -->
+<Modal Title="@("Mount pack")"
+       Visible="_mountModalVisible"
+       OnOk="HandleMount"
+       OnCancel="@(() => _mountModalVisible = false)"
+       ConfirmLoading="_mounting">
+    @if (_mountTarget is not null)
+    {
+        <Descriptions Column="1" Size="@DescriptionsSize.Small" Style="margin-bottom: 16px;">
+            <DescriptionsItem Label="Pack"><Text Strong>@(_mountTarget.Name ?? _mountTarget.FileName)</Text></DescriptionsItem>
+            <DescriptionsItem Label="ID"><Text Code Style="font-size: 11px;">@_mountTarget.PackId</Text></DescriptionsItem>
+            @if (_mountTarget.Encrypted)
+            {
+                <DescriptionsItem Label="Encrypted"><Tag Color="orange">Yes — passphrase required</Tag></DescriptionsItem>
+            }
+        </Descriptions>
+        <Form Model="_mountForm" Layout="@FormLayout.Vertical">
+            <FormItem Label="Namespace">
+                <Input @bind-Value="_mountForm.Namespace" Placeholder="default" />
+            </FormItem>
+            @if (_mountTarget.Encrypted)
+            {
+                <FormItem Label="Passphrase">
+                    <InputPassword @bind-Value="_mountForm.Passphrase" Placeholder="Enter passphrase to unlock" />
+                </FormItem>
+            }
+        </Form>
+        @if (_mountError is not null)
+        {
+            <Alert Type="@AlertType.Error" Message="@_mountError" Style="margin-top: 8px;" />
+        }
+    }
+</Modal>
+
+<!-- ── Inspect drawer ───────────────────────────────────────────────────── -->
+<Drawer Placement="right" Width="420"
+        Visible="_inspectDrawerVisible"
+        Title="@("Pack details")"
+        OnClose="@(() => { _inspectDrawerVisible = false; _inspectManifest = null; })">
+    @if (_inspectMount is not null)
+    {
+        <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
+            <DescriptionsItem Label="Name">@_inspectMount.PackName</DescriptionsItem>
+            <DescriptionsItem Label="ID"><Text Code Style="font-size: 11px;">@_inspectMount.PackId</Text></DescriptionsItem>
+            <DescriptionsItem Label="Version">@_inspectMount.PackVersion</DescriptionsItem>
+            <DescriptionsItem Label="Type"><Tag>@_inspectMount.PackType</Tag></DescriptionsItem>
+            <DescriptionsItem Label="Namespace"><Text Code>@_inspectMount.Namespace</Text></DescriptionsItem>
+            <DescriptionsItem Label="Mounted">@_inspectMount.MountedAt.ToString("yyyy-MM-dd HH:mm")</DescriptionsItem>
+            <DescriptionsItem Label="Checksum"><Text Code Style="font-size: 10px; word-break: break-all;">@_inspectMount.PackChecksum</Text></DescriptionsItem>
+        </Descriptions>
+
+        @if (_inspectManifest is not null)
+        {
+            <Divider Style="margin: 12px 0;" />
+            <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
+                <DescriptionsItem Label="Publisher">@(_inspectManifest.Publisher ?? "-")</DescriptionsItem>
+                <DescriptionsItem Label="Content types">@string.Join(", ", _inspectManifest.ContentTypes)</DescriptionsItem>
+                <DescriptionsItem Label="Target scopes">@string.Join(", ", _inspectManifest.TargetScopes)</DescriptionsItem>
+                <DescriptionsItem Label="Permissions">
+                    recall=@_inspectManifest.Permissions.AllowRecall
+                    export=@_inspectManifest.Permissions.AllowExport
+                    finetune=@_inspectManifest.Permissions.AllowFinetune
+                </DescriptionsItem>
+                <DescriptionsItem Label="Checksums">@_inspectManifest.Checksums.Count entries</DescriptionsItem>
+            </Descriptions>
+        }
+        else if (_loadingManifest)
+        {
+            <Spin Tip="Loading manifest…" Style="margin-top: 16px;" />
+        }
+    }
+</Drawer>
+
+@code {
+    // ── DTOs ────────────────────────────────────────────────────────────────
+    private sealed record PackFileDto(
+        string FileName, string FullPath, long SizeBytes, DateTimeOffset ModifiedAt,
+        string? PackId, string? Name, string? Version, bool Encrypted);
+
+    private sealed record MountedPackDto(
+        string Namespace, string PackId, string PackVersion, string PackName,
+        string PackType, string PackPath, string PackChecksum,
+        DateTimeOffset MountedAt, string? MountedBy, bool Enabled);
+
+    // ── State ────────────────────────────────────────────────────────────────
+    private List<PackFileDto>    _installed = [];
+    private List<MountedPackDto> _mounts    = [];
+    private bool _loadingInstalled;
+    private bool _loadingMounts;
+
+    // Upload
+    private bool    _uploading;
+    private string? _uploadError;
+    private string? _uploadSuccess;
+
+    // Mount modal
+    private bool       _mountModalVisible;
+    private bool       _mounting;
+    private string?    _mountError;
+    private PackFileDto? _mountTarget;
+    private readonly MountFormModel _mountForm = new();
+
+    // Inspect drawer
+    private bool            _inspectDrawerVisible;
+    private bool            _loadingManifest;
+    private MountedPackDto? _inspectMount;
+    private KnowledgePackManifest? _inspectManifest;
+
+    private sealed class MountFormModel
+    {
+        public string  Namespace  { get; set; } = "default";
+        public string? Passphrase { get; set; }
+    }
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
+    protected override async Task OnInitializedAsync()
+    {
+        await Task.WhenAll(LoadInstalledAsync(), LoadMountsAsync());
+    }
+
+    // ── Data loading ─────────────────────────────────────────────────────────
+    private async Task LoadInstalledAsync()
+    {
+        _loadingInstalled = true;
+        try
+        {
+            var dir = WebOptions.ExpandHome(Opts.PackStorePath);
+            if (!Directory.Exists(dir)) { _installed = []; return; }
+
+            var files = new List<PackFileDto>();
+            foreach (var file in Directory.EnumerateFiles(dir, "*.banyanpack"))
+            {
+                var info = new FileInfo(file);
+                string? packId = null, name = null, version = null;
+                var encrypted = false;
+                try
+                {
+                    await using var stream = File.OpenRead(file);
+                    var manifest = await KnowledgePackArchive.ReadManifestAsync(stream);
+                    packId = manifest.PackId; name = manifest.Name;
+                    version = manifest.Version; encrypted = manifest.Encryption is not null;
+                }
+                catch { /* corrupted / unreadable — still show */ }
+                files.Add(new PackFileDto(info.Name, file, info.Length,
+                    new DateTimeOffset(info.LastWriteTimeUtc, TimeSpan.Zero),
+                    packId, name, version, encrypted));
+            }
+
+            _installed = [.. files.OrderBy(f => f.FileName)];
+        }
+        finally { _loadingInstalled = false; }
+    }
+
+    private async Task LoadMountsAsync()
+    {
+        _loadingMounts = true;
+        try
+        {
+            var records = await Registry.ListAsync();
+            _mounts = [.. records.Select(r => new MountedPackDto(
+                r.Namespace, r.PackId, r.PackVersion, r.PackName,
+                r.PackType, r.PackPath, r.PackChecksum,
+                r.MountedAt, r.MountedBy, r.Enabled))];
+        }
+        finally { _loadingMounts = false; }
+    }
+
+    // ── Upload ───────────────────────────────────────────────────────────────
+    private async Task HandleFileSelected(InputFileChangeEventArgs e)
+    {
+        _uploadError = _uploadSuccess = null;
+        var file = e.File;
+        if (!file.Name.EndsWith(".banyanpack", StringComparison.OrdinalIgnoreCase))
+        {
+            _uploadError = "Only .banyanpack files are accepted.";
+            return;
+        }
+
+        _uploading = true;
+        try
+        {
+            var dir = WebOptions.ExpandHome(Opts.PackStorePath);
+            Directory.CreateDirectory(dir);
+            var destPath = Path.Combine(dir, Path.GetFileName(file.Name));
+            await using var dest = File.Create(destPath);
+            await using var src  = file.OpenReadStream(maxAllowedSize: 512 * 1024 * 1024); // 512 MB
+            await src.CopyToAsync(dest);
+
+            _uploadSuccess = $"Saved: {file.Name}";
+            await LoadInstalledAsync();
+        }
+        catch (Exception ex)
+        {
+            _uploadError = ex.Message;
+        }
+        finally { _uploading = false; }
+    }
+
+    // ── Mount modal ───────────────────────────────────────────────────────────
+    private void OpenMountModal(PackFileDto pack)
+    {
+        _mountTarget = pack;
+        _mountError  = null;
+        _mountForm.Namespace  = "default";
+        _mountForm.Passphrase = null;
+        _mountModalVisible    = true;
+    }
+
+    private async Task HandleMount()
+    {
+        if (_mountTarget is null) return;
+        _mountError = null;
+        if (string.IsNullOrWhiteSpace(_mountForm.Namespace))
+        {
+            _mountError = "Namespace is required.";
+            return;
+        }
+        _mounting = true;
+        try
+        {
+            await Registry.MountAsync(
+                _mountTarget.FullPath,
+                _mountForm.Namespace,
+                passphrase: _mountForm.Passphrase);
+
+            _mountModalVisible = false;
+            await LoadMountsAsync();
+        }
+        catch (KnowledgePackWrongPassphraseException)
+        {
+            _mountError = "Wrong passphrase — the pack could not be unlocked.";
+        }
+        catch (Exception ex)
+        {
+            _mountError = ex.Message;
+        }
+        finally { _mounting = false; }
+    }
+
+    // ── Inspect ───────────────────────────────────────────────────────────────
+    private async Task OpenInspectDrawer(MountedPackDto mount)
+    {
+        _inspectMount         = mount;
+        _inspectManifest      = null;
+        _inspectDrawerVisible = true;
+        _loadingManifest      = true;
+        try
+        {
+            if (File.Exists(mount.PackPath))
+            {
+                await using var stream = File.OpenRead(mount.PackPath);
+                _inspectManifest = await KnowledgePackArchive.ReadManifestAsync(stream);
+            }
+        }
+        catch { /* manifest unreadable — show what we have */ }
+        finally { _loadingManifest = false; }
+    }
+
+    // ── Unmount ───────────────────────────────────────────────────────────────
+    private async Task Unmount(string packId, string ns, string version)
+    {
+        await Registry.UnmountAsync(packId, ns, version);
+        await LoadMountsAsync();
+    }
+}

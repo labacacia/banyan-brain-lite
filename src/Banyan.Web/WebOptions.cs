@@ -30,6 +30,12 @@ public sealed class WebOptions
     public TimeSpan RefreshTokenExpiry    { get; set; } = TimeSpan.FromDays(30);
     public string  CliClientId            { get; set; } = "banyan-cli";
 
+    /// <summary>Directory where uploaded .banyanpack files are stored.</summary>
+    public string PackStorePath    { get; set; } = "~/.banyan/knowledge-packs/store";
+
+    /// <summary>Path to the pack mount registry JSON file.</summary>
+    public string PackRegistryPath { get; set; } = "~/.banyan/knowledge-packs/mounts.json";
+
     /// <summary>Path to the sqlite-vec loadable extension. Null = auto-discover (env var / default cache).</summary>
     public string? SqliteVecLibPath { get; set; }
 
