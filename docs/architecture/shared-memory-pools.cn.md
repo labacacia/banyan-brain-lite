@@ -2,7 +2,6 @@
 
 # Lite 共享记忆池
 
-总规划 issue：innolotus/banyan-brain-dev#69  
 Lite 跟踪 issue：labacacia/banyan-brain-lite#16
 
 ## 目标

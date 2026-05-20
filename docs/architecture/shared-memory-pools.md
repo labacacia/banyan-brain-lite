@@ -1,6 +1,5 @@
 # Lite Shared Memory Pools
 
-Parent planning issue: innolotus/banyan-brain-dev#69  
 Lite tracking issue: labacacia/banyan-brain-lite#16
 
 ## Goal
