@@ -1,3 +1,5 @@
+> **See also:** [Pro client profile](../../pro/docs/client-integration-profile.md) · [Ent client profile](../../ent/docs/client-integration-profile.md)
+
 # Banyan Client Integration Profile
 
 This profile keeps customer integrations portable across Banyan Lite, Pro, and Ent. Application code should depend on these settings and capability names, not on edition-specific startup commands or admin APIs.

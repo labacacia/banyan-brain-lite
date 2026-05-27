@@ -1,3 +1,5 @@
+> **See also (Canonical reference):** [ADR-001: Shared Memory Pools](../../../../docs/architecture/adr-001-memory-pools.md)
+
 # Lite Shared Memory Pools
 
 Lite tracking issue: labacacia/banyan-brain-lite#16

@@ -1,5 +1,7 @@
 [English Version](./shared-memory-pools.md) | 中文版
 
+> **参见（规范参考）：**[ADR-001：共享记忆池](../../../../docs/architecture/adr-001-memory-pools.cn.md)
+
 # Lite 共享记忆池
 
 Lite 跟踪 issue：labacacia/banyan-brain-lite#16
