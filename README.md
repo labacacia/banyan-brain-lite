@@ -17,7 +17,7 @@ The 1.0.0 release is the first stable Lite cut: one process, one SQLite-backed m
 ## What ships in 1.0.0
 
 - **Hybrid retrieval** — BM25 / FTS5 + ONNX vector search + RRF fusion. When `sqlite-vec` is available, vector search uses ANN; otherwise it falls back to in-memory cosine.
-- **Offline semantic embeddings** — pluggable `IEmbedder`, `bge-small-zh-v1.5` ONNX support, and a hashing fallback for fully offline operation.
+- **Offline semantic embeddings** — pluggable `IEmbedder`, curated ONNX profiles (`bge-small-zh-v1.5`, `all-MiniLM-L6-v2`), and a hashing fallback for fully offline operation.
 - **Event-sourced memory** — immutable write/update/forget log plus a current snapshot table for fast reads.
 - **NPS Memory Node compatibility** — `banyan serve` exposes `/.nwm`, `/.schema`, and `POST /api/memory/query` through the NWP Memory Node middleware.
 - **NID authentication** — `Authorization: NID <base64(IdentFrame)>`, with `anonymous-allowed`, `writes-required`, and `all-required` modes.
@@ -34,8 +34,11 @@ The 1.0.0 release is the first stable Lite cut: one process, one SQLite-backed m
 # 0. Install Banyan Brain Lite 1.0.0
 dotnet tool install -g Banyan.Cli --version 1.0.0
 
-# 1. Pull the embedder model and sqlite-vec extension (~24 MB)
+# 1. Pull the default embedder model and sqlite-vec extension (~24 MB)
 banyan embedder download
+
+# Optional: choose a curated English-first profile
+banyan embedder download --model all-MiniLM-L6-v2
 
 # 2. Bootstrap the embedded NID CA
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
@@ -156,6 +159,7 @@ Commercial editions and enterprise deployment options are maintained separately.
 - [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — human-side identity stack
 - [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + Microsoft.ML.Tokenizers — ONNX inference and WordPiece tokenization
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — multilingual sentence embeddings
+- [Xenova/all-MiniLM-L6-v2](https://huggingface.co/Xenova/all-MiniLM-L6-v2) — compact English sentence embeddings
 - [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite vector index
 
 ## License

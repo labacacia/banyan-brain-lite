@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.MemoryScopes</AssemblyName>
+    <RootNamespace>Banyan.MemoryScopes</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.MemoryScopes</PackageId>
+    <Description>Banyan shared memory-scope primitives for Tenant, Workspace, Agent, and Session scope derivation.</Description>
+  </PropertyGroup>
+</Project>

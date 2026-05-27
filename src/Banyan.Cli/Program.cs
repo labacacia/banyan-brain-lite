@@ -72,7 +72,8 @@ static void PrintHelp()
           agent verify  Verify a cert by NID
 
         Embedder (P2.1):
-          embedder download  Pull multilingual-e5-small ONNX + SentencePiece (~123 MB)
+          embedder profiles  List curated local embedder profiles
+          embedder download  Pull a curated ONNX embedder + vocab and sqlite-vec
           embedder info      Show paths / sizes / load status
 
         MCP:

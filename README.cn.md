@@ -17,7 +17,7 @@ Banyan Brain Lite 是一个事件驱动的记忆存储。Agent 可以通过 `Rem
 ## 1.0.0 包含什么
 
 - **混合检索** — BM25 / FTS5 + ONNX 向量 + RRF 融合；加载 `sqlite-vec` 时走 ANN，否则降级到内存 cosine。
-- **离线语义 embedding** — 可插拔 `IEmbedder`，支持 `bge-small-zh-v1.5` ONNX，也保留 hashing fallback。
+- **离线语义 embedding** — 可插拔 `IEmbedder`，提供 curated ONNX profiles（`bge-small-zh-v1.5`、`all-MiniLM-L6-v2`），也保留 hashing fallback。
 - **事件驱动记忆** — 不可变 write/update/forget 日志，加 current snapshot 表用于快速读取。
 - **NPS Memory Node 兼容** — `banyan serve` 通过 NWP Memory Node middleware 暴露 `/.nwm`、`/.schema`、`POST /api/memory/query`。
 - **NID 鉴权** — `Authorization: NID <base64(IdentFrame)>`，支持 `anonymous-allowed`、`writes-required`、`all-required` 三种模式。
@@ -34,8 +34,11 @@ Banyan Brain Lite 是一个事件驱动的记忆存储。Agent 可以通过 `Rem
 # 0. 安装 Banyan Brain Lite 1.0.0
 dotnet tool install -g Banyan.Cli --version 1.0.0
 
-# 1. 拉 embedder 模型和 sqlite-vec 扩展（约 24 MB）
+# 1. 拉默认 embedder 模型和 sqlite-vec 扩展（约 24 MB）
 banyan embedder download
+
+# 可选：选择偏英文的 curated profile
+banyan embedder download --model all-MiniLM-L6-v2
 
 # 2. 初始化内置 NID CA
 export BANYAN_NIP_CA_PASSPHRASE='your-passphrase'
@@ -155,6 +158,7 @@ tests/
 - [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — 人类身份栈
 - [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + Microsoft.ML.Tokenizers — ONNX 推理和 WordPiece tokenization
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — 多语言句向量
+- [Xenova/all-MiniLM-L6-v2](https://huggingface.co/Xenova/all-MiniLM-L6-v2) — 小型英文句向量
 - [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite vector index
 
 ## 许可证

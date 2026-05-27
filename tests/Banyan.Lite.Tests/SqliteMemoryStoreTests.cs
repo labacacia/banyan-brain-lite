@@ -1,5 +1,6 @@
 using Banyan.Core;
 using Banyan.Lite;
+using Banyan.MemoryScopes;
 using Xunit;
 
 namespace Banyan.Lite.Tests;
@@ -118,6 +119,29 @@ public sealed class SqliteMemoryStoreTests : IAsyncLifetime
 
         Assert.Equal(2, hits.Count);
         Assert.All(hits, h => Assert.Equal("ns-a", h.Memory.Namespace));
+    }
+
+    [Fact]
+    public async Task Search_RespectsHierarchicalNamespacePool()
+    {
+        var context = new MemoryScopeContext(
+            TenantId: "tenant-a",
+            WorkspaceId: "workspace-a",
+            AgentId: "agent-a",
+            SessionId: "session-a");
+        var readable = BanyanMemoryScopes.ReadableScopes(context, "workspace-a");
+
+        await _store.WriteAsync(new WriteRequest("scoped topic tenant", Namespace: BanyanMemoryScopes.Tenant(context)));
+        await _store.WriteAsync(new WriteRequest("scoped topic workspace", Namespace: BanyanMemoryScopes.Workspace(context)));
+        await _store.WriteAsync(new WriteRequest("scoped topic agent", Namespace: BanyanMemoryScopes.Agent(context)!));
+        await _store.WriteAsync(new WriteRequest("scoped topic session", Namespace: BanyanMemoryScopes.Session(context)!));
+        await _store.WriteAsync(new WriteRequest("scoped topic legacy", Namespace: "workspace-a"));
+        await _store.WriteAsync(new WriteRequest("scoped topic other", Namespace: "workspace:tenant-a:workspace-b"));
+
+        var hits = await Collect(_store.SearchAsync(new SearchQuery("scoped topic", Namespaces: readable)));
+
+        Assert.Equal(5, hits.Count);
+        Assert.DoesNotContain(hits, h => h.Memory.Namespace == "workspace:tenant-a:workspace-b");
     }
 
     [Fact]

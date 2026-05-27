@@ -9,10 +9,25 @@ namespace Banyan.Cli.Commands;
 /// <summary>Sub-dispatcher for <c>banyan embedder &lt;subcommand&gt;</c>.</summary>
 internal static class EmbedderCommand
 {
-    private const string DefaultModelUrl =
-        "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/onnx/model_quantized.onnx";
-    private const string DefaultVocabUrl =
-        "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/vocab.txt";
+    private static readonly EmbedderProfile[] Profiles =
+    [
+        new(
+            Id: "bge-small-zh-v1.5",
+            Description: "Default Lite/Pro multilingual profile, strong for Chinese and mixed Chinese/English memory.",
+            ModelUrl: "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/onnx/model_quantized.onnx",
+            VocabUrl: "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/vocab.txt",
+            ModelId: "bge-small-zh-v1.5.onnx.q8",
+            Dimensions: 384,
+            QueryPrefix: "为这个句子生成表示以用于检索相关文章："),
+        new(
+            Id: "all-MiniLM-L6-v2",
+            Description: "Small English-first sentence embedding profile, useful for English docs and code-heavy memory.",
+            ModelUrl: "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx",
+            VocabUrl: "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/vocab.txt",
+            ModelId: "all-MiniLM-L6-v2.onnx.q8",
+            Dimensions: 384,
+            QueryPrefix: "")
+    ];
     private const string SqliteVecVersion  = "v0.1.9";
     private const string SqliteVecBaseUrl  =
         "https://github.com/asg017/sqlite-vec/releases/download/v0.1.9";
@@ -26,6 +41,7 @@ internal static class EmbedderCommand
         {
             "download" => await DownloadAsync(rest),
             "info"     => Info(rest),
+            "profiles" => ProfilesList(),
             "--help" or "-h" or "help" => Help(),
             _          => Unknown(sub),
         };
@@ -33,14 +49,24 @@ internal static class EmbedderCommand
 
     private static async Task<int> DownloadAsync(string[] args)
     {
-        var opts = new OnnxEmbedderOptions();
+        var profile = ResolveProfile(CommandContext.GetOption(args, "--model") ?? CommandContext.GetOption(args, "--profile"));
+        if (profile is null)
+            return UnknownProfile(CommandContext.GetOption(args, "--model") ?? CommandContext.GetOption(args, "--profile") ?? "");
+
+        var opts = new OnnxEmbedderOptions
+        {
+            ModelId = profile.ModelId,
+            Dimensions = profile.Dimensions,
+            QueryPrefix = profile.QueryPrefix
+        };
         var modelPath = OnnxEmbedder.ExpandHome(CommandContext.GetOption(args, "--model-out") ?? opts.ModelPath);
         var vocabPath = OnnxEmbedder.ExpandHome(CommandContext.GetOption(args, "--vocab-out") ?? opts.VocabPath);
-        var modelUrl  = CommandContext.GetOption(args, "--model-url") ?? DefaultModelUrl;
-        var vocabUrl  = CommandContext.GetOption(args, "--vocab-url") ?? DefaultVocabUrl;
+        var modelUrl  = CommandContext.GetOption(args, "--model-url") ?? profile.ModelUrl;
+        var vocabUrl  = CommandContext.GetOption(args, "--vocab-url") ?? profile.VocabUrl;
         var force     = CommandContext.HasFlag(args, "--force");
         var withVec   = !CommandContext.HasFlag(args, "--no-vec");
 
+        Console.WriteLine($"[profile] {profile.Id} — {profile.Description}");
         Directory.CreateDirectory(Path.GetDirectoryName(modelPath)!);
         Directory.CreateDirectory(Path.GetDirectoryName(vocabPath)!);
 
@@ -55,6 +81,9 @@ internal static class EmbedderCommand
         Console.WriteLine($"  export BANYAN_EMBEDDER=onnx");
         Console.WriteLine($"  export BANYAN_EMBEDDER_MODEL={modelPath}");
         Console.WriteLine($"  export BANYAN_EMBEDDER_VOCAB={vocabPath}");
+        Console.WriteLine($"  export BANYAN_EMBEDDER_MODEL_ID={profile.ModelId}");
+        Console.WriteLine($"  export BANYAN_EMBEDDER_DIMENSIONS={profile.Dimensions}");
+        Console.WriteLine($"  export BANYAN_EMBEDDER_QUERY_PREFIX=\"{profile.QueryPrefix}\"");
         if (vecLibPath is not null)
             Console.WriteLine($"  export BANYAN_SQLITE_VEC_LIB={vecLibPath}");
         return 0;
@@ -168,6 +197,12 @@ internal static class EmbedderCommand
     private static int Info(string[] args)
     {
         var opts = new OnnxEmbedderOptions();
+        if (ResolveProfile(CommandContext.GetOption(args, "--profile")) is { } profile)
+        {
+            opts.ModelId = profile.ModelId;
+            opts.Dimensions = profile.Dimensions;
+            opts.QueryPrefix = profile.QueryPrefix;
+        }
         if (CommandContext.GetOption(args, "--model") is { } m) opts.ModelPath = m;
         if (CommandContext.GetOption(args, "--vocab") is { } v) opts.VocabPath = v;
 
@@ -191,15 +226,31 @@ internal static class EmbedderCommand
         return 0;
     }
 
+    private static int ProfilesList()
+    {
+        Console.WriteLine("Curated embedder profiles:");
+        foreach (var p in Profiles)
+        {
+            Console.WriteLine($"  {p.Id}");
+            Console.WriteLine($"    {p.Description}");
+            Console.WriteLine($"    dim={p.Dimensions}, model_id={p.ModelId}");
+        }
+        Console.WriteLine("  hashing");
+        Console.WriteLine("    Built-in fallback; no download required. Set BANYAN_EMBEDDER=hashing.");
+        return 0;
+    }
+
     private static int Help()
     {
         Console.WriteLine("""
             banyan embedder <subcommand>
-              download   Pull the bge-small-zh-v1.5 ONNX model + BERT WordPiece vocab (~24 MB)
-                         and the sqlite-vec loadable extension (~60 KB).
+              profiles   List curated local embedder profiles
+              download   Pull a curated ONNX model + BERT WordPiece vocab,
+                         plus the sqlite-vec loadable extension (~60 KB).
+                           --model ID         bge-small-zh-v1.5 | all-MiniLM-L6-v2
                            --model-out PATH    (default: ~/.banyan/embedder/model.onnx)
                            --vocab-out PATH    (default: ~/.banyan/embedder/vocab.txt)
-                           --model-url URL     (default: HuggingFace Xenova/bge-small-zh-v1.5)
+                           --model-url URL     override curated model URL
                            --vocab-url URL
                            --no-vec            skip the sqlite-vec extension (use linear scan)
                            --force             redownload existing files
@@ -213,4 +264,26 @@ internal static class EmbedderCommand
         Console.Error.WriteLine($"banyan embedder: unknown subcommand '{sub}'. Run `banyan embedder --help`.");
         return 64;
     }
+
+    private static EmbedderProfile? ResolveProfile(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id))
+            return Profiles[0];
+        return Profiles.FirstOrDefault(p => string.Equals(p.Id, id, StringComparison.OrdinalIgnoreCase));
+    }
+
+    private static int UnknownProfile(string id)
+    {
+        Console.Error.WriteLine($"banyan embedder: unknown model profile '{id}'. Run `banyan embedder profiles`.");
+        return 64;
+    }
+
+    private sealed record EmbedderProfile(
+        string Id,
+        string Description,
+        string ModelUrl,
+        string VocabUrl,
+        string ModelId,
+        int Dimensions,
+        string QueryPrefix);
 }

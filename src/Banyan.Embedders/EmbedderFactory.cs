@@ -9,13 +9,19 @@ namespace Banyan.Embedders;
 /// Recognised env vars:
 ///   <c>BANYAN_EMBEDDER</c>           — <c>onnx</c> | <c>hashing</c> | <c>auto</c> (default)
 ///   <c>BANYAN_EMBEDDER_MODEL</c>     — path to the .onnx model file
-///   <c>BANYAN_EMBEDDER_TOKENIZER</c> — path to the SentencePiece .model file
+///   <c>BANYAN_EMBEDDER_VOCAB</c>     — path to the BERT WordPiece vocab.txt file
+///   <c>BANYAN_EMBEDDER_MODEL_ID</c>  — logical model id stored with vectors
+///   <c>BANYAN_EMBEDDER_QUERY_PREFIX</c> — optional retrieval-query prefix
 /// </summary>
 public static class EmbedderFactory
 {
     public const string EnvKind  = "BANYAN_EMBEDDER";
     public const string EnvModel = "BANYAN_EMBEDDER_MODEL";
     public const string EnvVocab = "BANYAN_EMBEDDER_VOCAB";
+    public const string EnvModelId = "BANYAN_EMBEDDER_MODEL_ID";
+    public const string EnvQueryPrefix = "BANYAN_EMBEDDER_QUERY_PREFIX";
+    public const string EnvDimensions = "BANYAN_EMBEDDER_DIMENSIONS";
+    public const string EnvMaxSequenceLength = "BANYAN_EMBEDDER_MAX_SEQUENCE_LENGTH";
 
     public static IEmbedder Create(TextWriter? log = null)
     {
@@ -33,6 +39,14 @@ public static class EmbedderFactory
             var opts = new OnnxEmbedderOptions();
             if (Environment.GetEnvironmentVariable(EnvModel) is { Length: > 0 } m) opts.ModelPath = m;
             if (Environment.GetEnvironmentVariable(EnvVocab) is { Length: > 0 } v) opts.VocabPath = v;
+            if (Environment.GetEnvironmentVariable(EnvModelId) is { Length: > 0 } id) opts.ModelId = id;
+            if (Environment.GetEnvironmentVariable(EnvQueryPrefix) is { } prefix) opts.QueryPrefix = prefix;
+            if (Environment.GetEnvironmentVariable(EnvDimensions) is { Length: > 0 } dims &&
+                int.TryParse(dims, out var dim) && dim > 0)
+                opts.Dimensions = dim;
+            if (Environment.GetEnvironmentVariable(EnvMaxSequenceLength) is { Length: > 0 } maxSeq &&
+                int.TryParse(maxSeq, out var max) && max > 0)
+                opts.MaxSequenceLength = max;
 
             var modelOk = File.Exists(OnnxEmbedder.ExpandHome(opts.ModelPath));
             var tokOk   = File.Exists(OnnxEmbedder.ExpandHome(opts.VocabPath));
