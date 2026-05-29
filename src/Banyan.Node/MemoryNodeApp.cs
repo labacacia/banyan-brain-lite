@@ -2,8 +2,10 @@ using Banyan.Auth;
 using Banyan.Core;
 using Banyan.Embedders;
 using Banyan.Lite;
+using Banyan.Mcp;
 using Banyan.Node.Auth;
 using NPS.NIP.Verification;
+using NPS.NWP.ActionNode;
 using NPS.NWP.Extensions;
 using NPS.NWP.MemoryNode;
 using NPS.NWP.Nwm;
@@ -86,6 +88,37 @@ public static class MemoryNodeApp
             o.Schema             = BanyanMemoryProvider.BuildSchema();
         });
 
+        // ── Act Node (NPS-2) ─────────────────────────────────────────────────
+        // Exposes memory.recall/remember/update/forget as NWP action endpoints.
+        if (opts.EnableActNode)
+        {
+            builder.Services.AddSingleton<BanyanActionNodeProvider>();
+            builder.Services.AddActionNode<BanyanActionNodeProvider>(o =>
+            {
+                o.NodeId      = opts.NodeId + "-act";
+                o.DisplayName = opts.DisplayName + " (Act)";
+                o.PathPrefix  = "/api/act";
+                o.RequireAuth = opts.RequireAuth;
+                o.Actions     = BanyanActionNodeProvider.BuildActions();
+            });
+        }
+
+        // ── MCP HTTP transport (Streamable HTTP + SSE legacy) ─────────────
+        // Claude Desktop / Claude Code can connect via HTTP instead of stdio.
+        if (opts.EnableMcp)
+        {
+            builder.Services.AddHttpContextAccessor();
+            builder.Services.AddSingleton(new McpDefaults(opts.McpDefaultNamespace));
+            builder.Services.AddTransient<IBanyanMcpAgentContext, BanyanNodeMcpAgentContext>();
+            // IMemoryStore is registered as concrete SqliteMemoryStore above; register the
+            // interface alias so BanyanMemoryTools can resolve it.
+            builder.Services.AddSingleton<IMemoryStore>(memoryStore);
+            builder.Services
+                .AddMcpServer()
+                .WithHttpTransport()
+                .WithTools<BanyanMemoryTools>();
+        }
+
         // ── NID auth (Lite default = AnonymousAllowed; opt-in WritesRequired/AllRequired) ────
         builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
 
@@ -123,12 +156,29 @@ public static class MemoryNodeApp
             o.Schema             = BanyanMemoryProvider.BuildSchema();
         });
 
-        Console.WriteLine($"Banyan Memory Node listening on {opts.Urls}");
+        if (opts.EnableActNode)
+        {
+            app.UseActionNode<BanyanActionNodeProvider>(o =>
+            {
+                o.NodeId      = opts.NodeId + "-act";
+                o.DisplayName = opts.DisplayName + " (Act)";
+                o.PathPrefix  = "/api/act";
+                o.RequireAuth = opts.RequireAuth;
+                o.Actions     = BanyanActionNodeProvider.BuildActions();
+            });
+        }
+
+        if (opts.EnableMcp)
+            app.MapMcp(opts.McpPath);
+
+        Console.WriteLine($"Banyan Node listening on {opts.Urls}");
         Console.WriteLine($"  memory.db        : {memoryDb}");
-        if (memoryStore.VecEnabled) Console.WriteLine("  sqlite-vec        : ANN enabled");
-        if (ca is not null)         Console.WriteLine($"  CA (in-process)   : {ca.CaNid}");
+        if (memoryStore.VecEnabled)  Console.WriteLine("  sqlite-vec       : ANN enabled");
+        if (ca is not null)          Console.WriteLine($"  CA (in-process)  : {ca.CaNid}");
         Console.WriteLine($"  trusted issuers  : {opts.TrustedIssuers.Count}");
         Console.WriteLine($"  require auth     : {opts.RequireAuth}");
+        Console.WriteLine($"  act node         : {(opts.EnableActNode ? "/api/act" : "disabled")}");
+        Console.WriteLine($"  MCP HTTP         : {(opts.EnableMcp ? opts.McpPath : "disabled")}");
 
         await app.RunAsync(ct);
     }

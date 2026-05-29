@@ -9,8 +9,10 @@
     <ProjectReference Include="../Banyan.Lite/Banyan.Lite.csproj" />
     <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
     <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
+    <ProjectReference Include="../Banyan.Mcp/Banyan.Mcp.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="LabAcacia.NPS.NWP" Version="1.0.0-alpha.5" />
+    <PackageReference Include="LabAcacia.NPS.NWP" Version="1.0.0-alpha.6" />
+    <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
   </ItemGroup>
 </Project>

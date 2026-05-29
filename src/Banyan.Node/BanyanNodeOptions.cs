@@ -31,4 +31,23 @@ public sealed class BanyanNodeOptions
     public uint    DefaultLimit    { get; set; } = 20;
     public uint    MaxLimit        { get; set; } = 200;
     public uint    DefaultTokenBudget { get; set; } = 8192;
+
+    // ── Act node (NPS-2) ──────────────────────────────────────────────────
+    /// <summary>
+    /// When true, an NWP Action Node is mounted at <c>/api/act</c> alongside the Memory Node.
+    /// Exposes <c>memory.recall</c>, <c>memory.remember</c>, <c>memory.update</c>, <c>memory.forget</c>.
+    /// </summary>
+    public bool    EnableActNode   { get; set; } = true;
+
+    // ── MCP HTTP transport ────────────────────────────────────────────────
+    /// <summary>
+    /// When true, a Model Context Protocol (Streamable HTTP + SSE) endpoint is mounted
+    /// at <see cref="McpPath"/>. Claude Desktop / Claude Code can connect via HTTP instead
+    /// of spawning a stdio subprocess.
+    /// </summary>
+    public bool    EnableMcp       { get; set; } = true;
+    /// <summary>Path at which the MCP endpoint is mounted. Default <c>/mcp</c>.</summary>
+    public string  McpPath         { get; set; } = "/mcp";
+    /// <summary>Default namespace used by the <c>memory.remember</c> MCP tool when the caller omits one.</summary>
+    public string  McpDefaultNamespace { get; set; } = "default";
 }
