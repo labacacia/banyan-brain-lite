@@ -4,6 +4,7 @@ using Banyan.Embedders;
 using Banyan.Lite;
 using Banyan.Mcp;
 using Banyan.Node.Auth;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using NPS.NIP.Verification;
 using NPS.NWP.ActionNode;
 using NPS.NWP.Extensions;
@@ -41,32 +42,65 @@ public static class MemoryNodeApp
         builder.Services.AddSingleton(embedder);
         builder.Services.AddSingleton(memoryStore);
 
-        // ── Embedded CA — auto-trusts itself when present ────────────────────
+        // ── Auth mode branching ──────────────────────────────────────────────
         EmbeddedNipCa? ca = null;
-        var caKeyPath = ExpandHome(opts.NipCaKeyPath);
-        if (!string.IsNullOrEmpty(passphrase) && File.Exists(caKeyPath))
+
+        if (opts.AuthMode == BanyanAuthMode.Hub)
         {
-            ca = await EmbeddedNipCa.OpenAsync(new BanyanNipCaOptions
+            // Hub mode: trust Hub NID issuer; require auth on all NWP endpoints.
+            // JWT Bearer is wired so MCP + Act Node callers can present Hub-issued tokens.
+            if (opts.Hub.NidIssuerNid is { Length: > 0 } hubNid &&
+                opts.Hub.NidPublicKey  is { Length: > 0 } hubPub)
+                opts.TrustedIssuers[hubNid] = hubPub;
+
+            opts.RequireAuth = true;
+
+            if (!string.IsNullOrEmpty(opts.Hub.JwtAuthority))
             {
-                DbPath        = opts.NipCaDbPath,
-                KeyFilePath   = opts.NipCaKeyPath,
-                KeyPassphrase = passphrase,
-                CaNid         = opts.CaNid,
-            }, ct);
-            opts.TrustedIssuers[ca.CaNid] = ca.CaPubKey;
-            builder.Services.AddSingleton(ca);
+                builder.Services
+                    .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                    .AddJwtBearer(jwt =>
+                    {
+                        jwt.Authority = opts.Hub.JwtAuthority;
+                        jwt.Audience  = !string.IsNullOrEmpty(opts.Hub.JwtAudience)
+                            ? opts.Hub.JwtAudience
+                            : "banyan";
+                        jwt.MapInboundClaims = false;
+                    });
+                builder.Services.AddAuthorization();
+            }
+        }
+        else
+        {
+            // Offline mode: embedded CA auto-trusts itself when key + passphrase present.
+            var caKeyPath = ExpandHome(opts.NipCaKeyPath);
+            if (!string.IsNullOrEmpty(passphrase) && File.Exists(caKeyPath))
+            {
+                ca = await EmbeddedNipCa.OpenAsync(new BanyanNipCaOptions
+                {
+                    DbPath        = opts.NipCaDbPath,
+                    KeyFilePath   = opts.NipCaKeyPath,
+                    KeyPassphrase = passphrase,
+                    CaNid         = opts.CaNid,
+                }, ct);
+                opts.TrustedIssuers[ca.CaNid] = ca.CaPubKey;
+                builder.Services.AddSingleton(ca);
+            }
         }
 
         // ── NIP verifier (used by NPS.NWP middleware for IdentFrame auth) ───
-        // OcspUrl=null disables remote OCSP — embedded CA (when present) is consulted directly
-        // by NidAuthenticationMiddleware; an empty string here would crash HttpClient on every verify.
-        builder.Services.AddSingleton(_ => new NipVerifierOptions
+        // Registered only when there are trust anchors; without it the middleware
+        // passes all requests through (consistent with Offline mode).
+        if (opts.TrustedIssuers.Count > 0)
         {
-            TrustedIssuers      = opts.TrustedIssuers.ToDictionary(kv => kv.Key, kv => kv.Value),
-            LocalRevokedSerials = new HashSet<string>(),
-            OcspUrl             = null!,
-        });
-        builder.Services.AddSingleton<NipIdentVerifier>();
+            builder.Services.AddSingleton(_ => new NipVerifierOptions
+            {
+                TrustedIssuers      = opts.TrustedIssuers.ToDictionary(kv => kv.Key, kv => kv.Value),
+                LocalRevokedSerials = new HashSet<string>(),
+                OcspUrl             = null!,
+            });
+            builder.Services.AddSingleton<NipIdentVerifier>();
+        }
 
         // ── NWP DI: Memory Node provider + global NWP options ────────────────
         builder.Services.AddNwp(o =>
@@ -119,8 +153,13 @@ public static class MemoryNodeApp
                 .WithTools<BanyanMemoryTools>();
         }
 
-        // ── NID auth (Lite default = AnonymousAllowed; opt-in WritesRequired/AllRequired) ────
-        builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
+        // ── NID auth ──────────────────────────────────────────────────────────
+        // Hub mode: default to WritesRequired unless the operator explicitly overrode NidAuthMode.
+        // Offline mode: AnonymousAllowed (Lite default).
+        var nidAuthMode = opts.AuthMode == BanyanAuthMode.Hub && opts.NidAuthMode == NidAuthMode.AnonymousAllowed
+            ? NidAuthMode.WritesRequired
+            : opts.NidAuthMode;
+        builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = nidAuthMode });
 
         // ── Build pipeline ────────────────────────────────────────────────────
         var app = builder.Build();
@@ -175,6 +214,7 @@ public static class MemoryNodeApp
         Console.WriteLine($"  memory.db        : {memoryDb}");
         if (memoryStore.VecEnabled)  Console.WriteLine("  sqlite-vec       : ANN enabled");
         if (ca is not null)          Console.WriteLine($"  CA (in-process)  : {ca.CaNid}");
+        Console.WriteLine($"  auth mode        : {opts.AuthMode}");
         Console.WriteLine($"  trusted issuers  : {opts.TrustedIssuers.Count}");
         Console.WriteLine($"  require auth     : {opts.RequireAuth}");
         Console.WriteLine($"  act node         : {(opts.EnableActNode ? "/api/act" : "disabled")}");

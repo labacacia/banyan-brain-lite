@@ -1,3 +1,4 @@
+using Banyan.Auth;
 using Banyan.Web;
 
 namespace Banyan.Cli.Commands;
@@ -29,11 +30,18 @@ internal static class WebCommand
                                       PUBKEY format: ed25519:<base64>
                                       Example: --trusted-issuer urn:nps:ca:foo:root=ed25519:ABC...
                   --ocsp-url URL      OCSP endpoint of the external CA for revocation checks
+                  --auth-mode MODE    local (default) | hub
+                                      local: built-in admin account + embedded identity server
+                                      hub:   Hub OIDC issues JWTs; Hub NID CA for agents
+                  --hub-url URL       Hub OIDC authority URL (required for --auth-mode hub)
+                  --hub-audience AUD  Expected JWT audience in Hub tokens (default: banyan)
+                  --hub-nid-issuer NID=PUBKEY
+                                      Hub NIP CA trust anchor (NID=ed25519:KEY format)
 
                 Auth:
-                  Embedded CA: Lite auto-initialises a local CA on first launch.
+                  Local mode: Lite auto-initialises a local CA and admin account on first launch.
+                  Hub mode:   No local admin — Hub OIDC authority validates all JWTs.
                   External CA: use --ca-server-type external --ca-server-address URL.
-                  Without either, NID auth is disabled and /api/memory stays open.
                 """);
             return 0;
         }
@@ -50,6 +58,16 @@ internal static class WebCommand
         if (CommandContext.GetOption(args, "--nid-auth")  is { } na &&
             Enum.TryParse<Banyan.Auth.NidAuthMode>(na, ignoreCase: true, out var mode)) opts.NidAuthMode = mode;
         if (CommandContext.GetOption(args, "--ocsp-url")  is { } ou) opts.ExternalOcspUrl = ou;
+        if (CommandContext.GetOption(args, "--auth-mode") is { } am &&
+            Enum.TryParse<BanyanAuthMode>(am, ignoreCase: true, out var authMode)) opts.AuthMode = authMode;
+        if (CommandContext.GetOption(args, "--hub-url")      is { } hu)  opts.Hub.JwtAuthority = hu;
+        if (CommandContext.GetOption(args, "--hub-audience") is { } hau) opts.Hub.JwtAudience  = hau;
+        if (CommandContext.GetOption(args, "--hub-nid-issuer") is { } hni)
+        {
+            var eq = hni.IndexOf('=');
+            if (eq > 0) { opts.Hub.NidIssuerNid = hni[..eq].Trim(); opts.Hub.NidPublicKey = hni[(eq + 1)..].Trim(); }
+            else Console.Error.WriteLine($"[warn] --hub-nid-issuer ignored (expected NID=PUBKEY): {hni}");
+        }
 
         // --trusted-issuer may repeat; each value is NID=PUBKEY
         foreach (var ti in CommandContext.GetOptions(args, "--trusted-issuer"))

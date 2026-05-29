@@ -13,6 +13,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="LabAcacia.NPS.NWP" Version="1.0.0-alpha.6" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
     <PackageReference Include="ModelContextProtocol.AspNetCore" Version="1.2.0" />
   </ItemGroup>
 </Project>

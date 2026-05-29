@@ -1,3 +1,4 @@
+using Banyan.Auth;
 using Banyan.Node;
 
 namespace Banyan.Cli.Commands;
@@ -26,6 +27,12 @@ internal static class ServeCommand
                   --no-mcp                  disable the HTTP MCP endpoint
                   --mcp-path PATH           MCP endpoint path (default: /mcp)
                   --mcp-namespace NS        default namespace for the MCP remember tool (default: default)
+                  --auth-mode MODE          offline (default) | hub
+                                            offline: all requests accepted without credentials
+                                            hub:     Hub OIDC JWT + Hub NID CA required
+                  --hub-url URL             Hub OIDC authority URL (required for --auth-mode hub)
+                  --hub-audience AUD        Expected JWT audience in Hub tokens (default: banyan)
+                  --hub-nid-issuer NID=KEY  Hub NIP CA trust anchor (NID=ed25519:KEY format)
 
                 Protocol surfaces (all on one port by default):
                   /api/memory   NWP Memory Node  — NPS-3 §5 recall/stream
@@ -57,7 +64,17 @@ internal static class ServeCommand
         if (CommandContext.HasFlag(args, "--no-act"))     opts.EnableActNode = false;
         if (CommandContext.HasFlag(args, "--no-mcp"))     opts.EnableMcp     = false;
         if (CommandContext.GetOption(args, "--nid-auth")  is { } na &&
-            Enum.TryParse<Banyan.Auth.NidAuthMode>(na, ignoreCase: true, out var mode)) opts.NidAuthMode = mode;
+            Enum.TryParse<NidAuthMode>(na, ignoreCase: true, out var mode)) opts.NidAuthMode = mode;
+        if (CommandContext.GetOption(args, "--auth-mode") is { } am &&
+            Enum.TryParse<BanyanAuthMode>(am, ignoreCase: true, out var authMode)) opts.AuthMode = authMode;
+        if (CommandContext.GetOption(args, "--hub-url")      is { } hu)  opts.Hub.JwtAuthority = hu;
+        if (CommandContext.GetOption(args, "--hub-audience") is { } hau) opts.Hub.JwtAudience  = hau;
+        if (CommandContext.GetOption(args, "--hub-nid-issuer") is { } hni)
+        {
+            var eq = hni.IndexOf('=');
+            if (eq > 0) { opts.Hub.NidIssuerNid = hni[..eq].Trim(); opts.Hub.NidPublicKey = hni[(eq + 1)..].Trim(); }
+            else Console.Error.WriteLine($"[warn] --hub-nid-issuer ignored (expected NID=PUBKEY): {hni}");
+        }
 
         // Repeatable --trusted-issuer NID=PUB
         for (int i = 0; i < args.Length - 1; i++)

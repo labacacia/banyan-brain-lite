@@ -1,3 +1,5 @@
+using Banyan.Auth;
+
 namespace Banyan.Web;
 
 /// <summary>
@@ -54,6 +56,16 @@ public sealed class WebOptions
     /// Null (default) disables OCSP — revocation is not checked.
     /// </summary>
     public string? ExternalOcspUrl { get; set; }
+
+    // ── Authentication mode ───────────────────────────────────────────────
+    /// <summary>
+    /// <see cref="BanyanAuthMode.Local"/>: local OLS admin account + embedded CA (default).
+    /// <see cref="BanyanAuthMode.Hub"/>: Hub-issued JWT for web UI; Hub NID for agents.
+    /// </summary>
+    public BanyanAuthMode AuthMode { get; set; } = BanyanAuthMode.Local;
+
+    /// <summary>Hub IAM connection details. Only used when <see cref="AuthMode"/> is <see cref="BanyanAuthMode.Hub"/>.</summary>
+    public HubAuthOptions Hub { get; set; } = new();
 
     public static string ExpandHome(string path)
     {

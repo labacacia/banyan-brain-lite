@@ -145,63 +145,91 @@ public static class WebApp
             ],
         });
 
-        // ── Human identity (OLS-backed OIDC) ──────────────────────────────────────────
-        // Web startup now owns first-run identity bootstrap: the signing key and
-        // identity.db are created if missing, then the browser setup flow creates
-        // the first admin user before the main UI is allowed through.
-        var issuer = opts.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries).First().TrimEnd('/');
-        var identityOpts = new BanyanIdentityOptions
+        // ── Human identity — branches on AuthMode ─────────────────────────────────────
+        BanyanIdentityOptions? identityOpts = null;
+        if (opts.AuthMode == BanyanAuthMode.Hub)
         {
-            DbPath = opts.IdentityDbPath,
-            SigningKeyPath = opts.IdentitySigningKeyPath,
-            Issuer = issuer,
-            Audience = opts.Audience,
-            AccessTokenExpiry = opts.AccessTokenExpiry,
-            RefreshTokenExpiry = opts.RefreshTokenExpiry,
-            CliClientId = opts.CliClientId,
-        };
-        AdminBootstrapper.EnsureSigningKey(identityOpts);
-        var identityDbDir = Path.GetDirectoryName(WebOptions.ExpandHome(opts.IdentityDbPath));
-        if (!string.IsNullOrEmpty(identityDbDir))
-            Directory.CreateDirectory(identityDbDir);
-        builder.Services.AddBanyanIdentity(o =>
-        {
-            o.DbPath              = identityOpts.DbPath;
-            o.SigningKeyPath      = identityOpts.SigningKeyPath;
-            o.Issuer              = identityOpts.Issuer;
-            o.Audience            = identityOpts.Audience;
-            o.AccessTokenExpiry   = identityOpts.AccessTokenExpiry;
-            o.RefreshTokenExpiry  = identityOpts.RefreshTokenExpiry;
-            o.CliClientId         = identityOpts.CliClientId;
-            o.CliRedirectUris     = identityOpts.CliRedirectUris;
-        });
-        // OLS issues JWTs but doesn't register a validation scheme — wire JWT Bearer with the
-        // same signing key + issuer + audience so /api/* routes can require [Authorize].
-        var (signingKey, _) = PemSigningKeyLoader.Load(WebOptions.ExpandHome(opts.IdentitySigningKeyPath));
-        builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-            .AddJwtBearer(jwt =>
+            // Hub mode: Hub OIDC authority issues JWTs; no local OLS DB or admin setup.
+            var jwtBuilder = builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme);
+            if (string.IsNullOrEmpty(opts.Hub.JwtAuthority))
             {
-                // Disable the default JwtSecurityTokenHandler inbound claim-name mapping
-                // (e.g. "role" → ClaimTypes.Role) so claims stay verbatim — keeps RoleClaimType
-                // below matching what OLS actually puts on the wire.
-                jwt.MapInboundClaims = false;
-                jwt.TokenValidationParameters = new TokenValidationParameters
+                Console.Error.WriteLine("[auth] Hub mode: no Hub:JwtAuthority configured — JWT validation disabled.");
+                jwtBuilder.AddJwtBearer(); // register scheme with no-op defaults; all requests will fail auth
+            }
+            else
+            {
+                jwtBuilder.AddJwtBearer(jwt =>
                 {
-                    ValidateIssuer           = true,
-                    ValidIssuer              = issuer,
-                    ValidateAudience         = true,
-                    ValidAudience            = opts.Audience,
-                    ValidateLifetime         = true,
-                    ValidateIssuerSigningKey = true,
-                    IssuerSigningKey         = signingKey,
-                    RoleClaimType            = "role",
-                    NameClaimType            = "unique_name",
-                };
+                    jwt.Authority        = opts.Hub.JwtAuthority;
+                    jwt.Audience         = !string.IsNullOrEmpty(opts.Hub.JwtAudience)
+                        ? opts.Hub.JwtAudience : opts.Audience;
+                    jwt.MapInboundClaims = false;
+                });
+                Console.WriteLine($"[auth] Hub mode — JWT authority: {opts.Hub.JwtAuthority}");
+            }
+            // Hub NID as trusted NID issuer (supplements or replaces embedded CA).
+            if (opts.Hub.NidIssuerNid is { Length: > 0 } hubNid && opts.Hub.NidPublicKey is { Length: > 0 } hubPub)
+            {
+                opts.TrustedIssuers.TryAdd(hubNid, hubPub);
+                Console.WriteLine($"[nid]  Hub NID issuer: {hubNid}");
+            }
+            builder.Services.AddAuthorization(authz =>
+            {
+                authz.AddPolicy("admin", p => p.RequireAuthenticatedUser());
             });
-        builder.Services.AddAuthorization(authz =>
+        }
+        else
         {
-            authz.AddPolicy("admin", p => p.RequireRole("admin", "ADMIN"));
-        });
+            // Local mode (default): OLS-backed OIDC; signing key + identity DB created on first run.
+            var issuer = opts.Urls.Split(';', StringSplitOptions.RemoveEmptyEntries).First().TrimEnd('/');
+            identityOpts = new BanyanIdentityOptions
+            {
+                DbPath             = opts.IdentityDbPath,
+                SigningKeyPath     = opts.IdentitySigningKeyPath,
+                Issuer             = issuer,
+                Audience           = opts.Audience,
+                AccessTokenExpiry  = opts.AccessTokenExpiry,
+                RefreshTokenExpiry = opts.RefreshTokenExpiry,
+                CliClientId        = opts.CliClientId,
+            };
+            AdminBootstrapper.EnsureSigningKey(identityOpts);
+            var identityDbDir = Path.GetDirectoryName(WebOptions.ExpandHome(opts.IdentityDbPath));
+            if (!string.IsNullOrEmpty(identityDbDir))
+                Directory.CreateDirectory(identityDbDir);
+            builder.Services.AddBanyanIdentity(o =>
+            {
+                o.DbPath              = identityOpts.DbPath;
+                o.SigningKeyPath      = identityOpts.SigningKeyPath;
+                o.Issuer              = identityOpts.Issuer;
+                o.Audience            = identityOpts.Audience;
+                o.AccessTokenExpiry   = identityOpts.AccessTokenExpiry;
+                o.RefreshTokenExpiry  = identityOpts.RefreshTokenExpiry;
+                o.CliClientId         = identityOpts.CliClientId;
+                o.CliRedirectUris     = identityOpts.CliRedirectUris;
+            });
+            var (signingKey, _) = PemSigningKeyLoader.Load(WebOptions.ExpandHome(opts.IdentitySigningKeyPath));
+            builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(jwt =>
+                {
+                    jwt.MapInboundClaims = false;
+                    jwt.TokenValidationParameters = new TokenValidationParameters
+                    {
+                        ValidateIssuer           = true,
+                        ValidIssuer              = issuer,
+                        ValidateAudience         = true,
+                        ValidAudience            = opts.Audience,
+                        ValidateLifetime         = true,
+                        ValidateIssuerSigningKey = true,
+                        IssuerSigningKey         = signingKey,
+                        RoleClaimType            = "role",
+                        NameClaimType            = "unique_name",
+                    };
+                });
+            builder.Services.AddAuthorization(authz =>
+            {
+                authz.AddPolicy("admin", p => p.RequireRole("admin", "ADMIN"));
+            });
+        }
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
         builder.Services.AddAntDesign();
@@ -218,32 +246,45 @@ public static class WebApp
             .WithTools<BanyanMemoryTools>();
 
         var app = builder.Build();
-        await AdminBootstrapper.EnsureBaselineAsync(
-            app.Services.GetRequiredService<SqliteIdentityStore>(), identityOpts, ct);
+
+        if (opts.AuthMode == BanyanAuthMode.Local && identityOpts is not null)
+        {
+            await AdminBootstrapper.EnsureBaselineAsync(
+                app.Services.GetRequiredService<SqliteIdentityStore>(), identityOpts, ct);
+        }
 
         app.Use(async (ctx, next) =>
         {
-            if (HttpMethods.IsGet(ctx.Request.Method)
-                && ctx.Request.Path == "/"
-                && !await AdminBootstrapper.HasAdminAsync(ctx.RequestServices.GetRequiredService<SqliteIdentityStore>(), ctx.RequestAborted))
+            // In Local mode redirect to setup if no admin exists yet.
+            if (opts.AuthMode == BanyanAuthMode.Local
+                && HttpMethods.IsGet(ctx.Request.Method)
+                && ctx.Request.Path == "/")
             {
-                ctx.Response.Redirect("/setup");
-                return;
+                var identityStore = ctx.RequestServices.GetService<SqliteIdentityStore>();
+                if (identityStore is not null && !await AdminBootstrapper.HasAdminAsync(identityStore, ctx.RequestAborted))
+                {
+                    ctx.Response.Redirect("/setup");
+                    return;
+                }
             }
-
             await next();
         });
 
         app.UseStaticFiles();
 
         // Cookie-to-bearer lifter must run BEFORE UseAuthentication so the JWT validator
-        // sees the synthesised header.
-        app.UseSessionCookie();
+        // sees the synthesised header. Skip in Hub mode (Hub handles session cookies).
+        if (opts.AuthMode == BanyanAuthMode.Local)
+            app.UseSessionCookie();
         app.UseAuthentication();
         app.UseAuthorization();
-        app.MapOlsOidcEndpoints();
-        BrowserAuthEndpoints.Map(app);
-        SetupEndpoints.Map(app);
+
+        if (opts.AuthMode == BanyanAuthMode.Local)
+        {
+            app.MapOlsOidcEndpoints();
+            BrowserAuthEndpoints.Map(app);
+            SetupEndpoints.Map(app);
+        }
 
         // Mount NID auth only when there's a verifier (i.e. CA was loaded). Otherwise we have no
         // trust anchors and the middleware would 401 every request.
@@ -271,7 +312,11 @@ public static class WebApp
         Console.WriteLine($"  memory.db : {memoryDb}");
         if (app.Services.GetService<EmbeddedNipCa>() is { } liveCa)
             Console.WriteLine($"  CA NID    : {liveCa.CaNid}");
-        Console.WriteLine("  identity  : enabled (first-run admin setup enforced)");
+        Console.WriteLine($"  auth mode : {opts.AuthMode}");
+        if (opts.AuthMode == BanyanAuthMode.Local)
+            Console.WriteLine("  identity  : local (first-run admin setup enforced)");
+        else if (opts.AuthMode == BanyanAuthMode.Hub)
+            Console.WriteLine($"  identity  : Hub ({opts.Hub.JwtAuthority ?? "no authority configured"})");
 
         await app.RunAsync(ct);
     }

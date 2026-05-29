@@ -1,3 +1,5 @@
+using Banyan.Auth;
+
 namespace Banyan.Node;
 
 /// <summary>
@@ -38,6 +40,16 @@ public sealed class BanyanNodeOptions
     /// Exposes <c>memory.recall</c>, <c>memory.remember</c>, <c>memory.update</c>, <c>memory.forget</c>.
     /// </summary>
     public bool    EnableActNode   { get; set; } = true;
+
+    // ── Authentication mode ───────────────────────────────────────────────
+    /// <summary>
+    /// <see cref="BanyanAuthMode.Offline"/>: all requests accepted without credentials (default).
+    /// <see cref="BanyanAuthMode.Hub"/>: tokens and NID certs verified against the Hub IAM.
+    /// </summary>
+    public BanyanAuthMode AuthMode { get; set; } = BanyanAuthMode.Offline;
+
+    /// <summary>Hub IAM connection details. Only used when <see cref="AuthMode"/> is <see cref="BanyanAuthMode.Hub"/>.</summary>
+    public HubAuthOptions Hub { get; set; } = new();
 
     // ── MCP HTTP transport ────────────────────────────────────────────────
     /// <summary>
