@@ -11,7 +11,7 @@ NPS-3 分三层协议：
 |----|------|-------|---------------|
 | **NCP**（Neural Communication Protocol） | 帧格式、codec、registry | `LabAcacia.NPS.Core` | 直接消费 — 不自己写 framer |
 | **NWP**（Neural Web Protocol） | Memory / Action / Complex 节点中间件、NWM manifest | `LabAcacia.NPS.NWP` | 直接消费 — `Banyan.Node` 接进去 |
-| **NIP**（Neural Identity Protocol） | NID 证书机构、IdentFrame 校验 | `LabAcacia.NPS.NIP` | 部分消费 — service 层能用，HTTP routing 是空 stub，由我们补齐 |
+| **NIP**（Neural Identity Protocol） | NID 证书机构、IdentFrame 校验 | `LabAcacia.NPS.NIP` | 已完整消费 — service 层已用，HTTP routing 由 `NipCaEndpoints`（`Banyan.Node.Auth`）补齐 |
 
 ---
 
