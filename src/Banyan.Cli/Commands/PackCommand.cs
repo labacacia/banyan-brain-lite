@@ -265,6 +265,7 @@ internal static class PackCommand
         Console.WriteLine($"version:       {result.Manifest.Version}");
         Console.WriteLine($"sources:       {result.Sources.Count}");
         Console.WriteLine($"memories:      {result.Memories.Count}");
+        Console.WriteLine($"review:        {result.ReviewQueue.Count}");
         if (outputPath is not null)
         {
             Console.WriteLine($"output:        {outputPath}");

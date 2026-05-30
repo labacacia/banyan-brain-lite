@@ -122,7 +122,8 @@ public sealed class KnowledgePackTests
 
             Assert.Equal(2, result.Sources.Count);
             Assert.Equal(2, result.Memories.Count);
-            Assert.Equal(2, result.Entries.Count);
+            Assert.Equal(2, result.ReviewQueue.Count);
+            Assert.Equal(3, result.Entries.Count);
             Assert.Contains(result.Sources, static s => s.Path == "overview.md" && s.MediaType == "text/markdown");
             Assert.Contains(result.Sources, static s => s.Path == "pricing.json" && s.MediaType == "application/json");
             Assert.Contains(result.Entries, static e => e.Path == "sources/sources.jsonl");

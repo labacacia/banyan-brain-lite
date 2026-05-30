@@ -21,11 +21,12 @@ public sealed record KnowledgePackBuildResult(
     KnowledgePackManifest Manifest,
     IReadOnlyList<KnowledgePackSourceRecord> Sources,
     IReadOnlyList<KnowledgePackMemoryRecord> Memories,
-    IReadOnlyList<KnowledgePackArchiveEntry> Entries);
+    IReadOnlyList<KnowledgePackArchiveEntry> Entries,
+    IReadOnlyList<KnowledgePackReviewEntry> ReviewQueue);
 
 public static class KnowledgePackBuilder
 {
-    private static readonly string[] SupportedExtensions = [".md", ".txt", ".json"];
+    private static readonly string[] SupportedExtensions = [".md", ".txt", ".json", ".csv"];
 
     public static async Task<KnowledgePackBuildResult> BuildFromPathAsync(
         string path,
@@ -51,8 +52,9 @@ public static class KnowledgePackBuilder
             ? Path.GetDirectoryName(fullPath)!
             : fullPath;
 
-        var sources = new List<KnowledgePackSourceRecord>();
-        var memories = new List<KnowledgePackMemoryRecord>();
+        var sources   = new List<KnowledgePackSourceRecord>();
+        var memories  = new List<KnowledgePackMemoryRecord>();
+        var review    = new List<KnowledgePackReviewEntry>();
         var checksums = new Dictionary<string, string>(StringComparer.Ordinal);
 
         foreach (var file in files)
@@ -75,13 +77,15 @@ public static class KnowledgePackBuilder
                 bytes.Length));
 
             checksums[$"sources/{sourceId}.json"] = checksum;
+            var memoryId = StableId("memory", relativePath);
             memories.Add(new KnowledgePackMemoryRecord(
-                StableId("memory", relativePath),
+                memoryId,
                 sourceId,
                 "document",
                 content,
                 relativePath,
                 Confidence: null));
+            review.Add(new KnowledgePackReviewEntry(memoryId, sourceId, relativePath, "accept"));
         }
 
         var manifest = new KnowledgePackManifest
@@ -105,10 +109,11 @@ public static class KnowledgePackBuilder
         var entries = new List<KnowledgePackArchiveEntry>
         {
             JsonEntry("sources/sources.jsonl", sources),
-            JsonEntry("memories/records.jsonl", memories)
+            JsonEntry("memories/records.jsonl", memories),
+            JsonEntry("review/queue.jsonl", review),
         };
 
-        return new KnowledgePackBuildResult(manifest, sources, memories, entries);
+        return new KnowledgePackBuildResult(manifest, sources, memories, entries, review);
     }
 
     public static IReadOnlyList<string> GetSupportedExtensions() => SupportedExtensions;
@@ -132,15 +137,23 @@ public static class KnowledgePackBuilder
     private static string ResolveMediaType(string path)
         => Path.GetExtension(path).ToLowerInvariant() switch
         {
-            ".md" => "text/markdown",
+            ".md"  => "text/markdown",
             ".txt" => "text/plain",
             ".json" => "application/json",
+            ".csv" => "text/csv",
             _ => "application/octet-stream"
         };
 
+    // JSONL must be one JSON object per line — never use WriteIndented here.
+    private static readonly JsonSerializerOptions JsonlOptions = new()
+    {
+        PropertyNamingPolicy   = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+    };
+
     private static KnowledgePackArchiveEntry JsonEntry<T>(string path, IReadOnlyList<T> records)
     {
-        var lines = records.Select(record => JsonSerializer.Serialize(record, KnowledgePackArchive.JsonOptions));
+        var lines = records.Select(record => JsonSerializer.Serialize(record, JsonlOptions));
         return new KnowledgePackArchiveEntry(path, Encoding.UTF8.GetBytes(string.Join('\n', lines) + "\n"));
     }
 
@@ -172,3 +185,14 @@ public sealed record KnowledgePackMemoryRecord(
     [property: JsonPropertyName("content")] string Content,
     [property: JsonPropertyName("source_path")] string SourcePath,
     [property: JsonPropertyName("confidence")] double? Confidence);
+
+/// <summary>
+/// One entry in <c>review/queue.jsonl</c>. Operators can set the
+/// <see cref="Decision"/> field to <c>accept</c>, <c>reject</c>, or
+/// <c>edit</c> before mounting the pack.
+/// </summary>
+public sealed record KnowledgePackReviewEntry(
+    [property: JsonPropertyName("record_id")]   string RecordId,
+    [property: JsonPropertyName("source_id")]   string SourceId,
+    [property: JsonPropertyName("source_path")] string SourcePath,
+    [property: JsonPropertyName("decision")]    string Decision);
