@@ -53,6 +53,16 @@ public sealed class SqliteMemoryStore : IMemoryStore
     /// <summary>True when sqlite-vec was loaded and the <c>embeddings_vec</c> ANN index is in use.</summary>
     public bool VecEnabled => _vecEnabled;
 
+    /// <summary>Runs a lightweight readiness query against the open SQLite connection.</summary>
+    public async Task PingAsync(CancellationToken ct = default)
+    {
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+        var value = await cmd.ExecuteScalarAsync(ct);
+        if (value is not long and not int)
+            throw new InvalidOperationException("SQLite readiness query returned an unexpected result.");
+    }
+
     // ── Write ─────────────────────────────────────────────────────────────────
 
     public async Task<MemoryId> WriteAsync(WriteRequest req, CancellationToken ct = default)
@@ -293,19 +303,19 @@ public sealed class SqliteMemoryStore : IMemoryStore
         if (string.IsNullOrWhiteSpace(query.Text)) yield break;
 
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = """
+        var nsFilter = AddNamespaceFilter(cmd, "memories_fts.namespace", query);
+        cmd.CommandText = $"""
             SELECT mc.memory_id, mc.event_id, mc.namespace, mc.content, mc.metadata,
                    mc.agent_nid, mc.created_at, mc.updated_at,
                    -bm25(memories_fts) AS score
             FROM   memories_fts
             JOIN   memories_current mc ON mc.memory_id = memories_fts.memory_id
             WHERE  memories_fts MATCH @q
-            AND   (@ns IS NULL OR memories_fts.namespace = @ns)
+            {nsFilter}
             ORDER BY score DESC
             LIMIT @k
             """;
         cmd.Parameters.AddWithValue("@q",  BuildFtsQuery(query.Text));
-        cmd.Parameters.AddWithValue("@ns", (object?)query.Namespace ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@k",  query.K);
 
         using var r = await cmd.ExecuteReaderAsync(ct);
@@ -351,22 +361,22 @@ public sealed class SqliteMemoryStore : IMemoryStore
         // vec0 doesn't support filtering on a non-indexed column inside MATCH. Instead we
         // over-fetch from the ANN, then post-filter by namespace via a join on `embeddings`.
         int kRequested = Math.Max(query.K, 1);
-        int kFetch     = query.Namespace is null ? kRequested : Math.Min(kRequested * 8, 1024);
+        int kFetch     = HasNamespaceFilter(query) ? Math.Min(kRequested * 8, 1024) : kRequested;
 
         var ranked = new List<(string memId, double score)>();
         await using var cmd = _conn.CreateCommand();
-        cmd.CommandText = """
+        var nsFilter = AddNamespaceFilter(cmd, "e.namespace", query);
+        cmd.CommandText = $"""
             SELECT v.memory_id, v.distance, e.namespace
             FROM   embeddings_vec v
             JOIN   embeddings     e ON e.memory_id = v.memory_id
             WHERE  v.embedding MATCH @q AND k = @k
-            AND   (@ns IS NULL OR e.namespace = @ns)
+            {nsFilter}
             ORDER BY v.distance
             LIMIT @lim
             """;
         cmd.Parameters.AddWithValue("@q",   qbytes);
         cmd.Parameters.AddWithValue("@k",   kFetch);
-        cmd.Parameters.AddWithValue("@ns",  (object?)query.Namespace ?? DBNull.Value);
         cmd.Parameters.AddWithValue("@lim", kRequested);
 
         using var r = await cmd.ExecuteReaderAsync(ct);
@@ -385,11 +395,11 @@ public sealed class SqliteMemoryStore : IMemoryStore
     {
         var ranked = new List<(string, double)>();
         using var cmd = _conn.CreateCommand();
-        cmd.CommandText = """
+        var nsFilter = AddNamespaceFilter(cmd, "namespace", query, leadingAnd: false);
+        cmd.CommandText = $"""
             SELECT memory_id, vector FROM embeddings
-            WHERE @ns IS NULL OR namespace = @ns
+            {nsFilter}
             """;
-        cmd.Parameters.AddWithValue("@ns", (object?)query.Namespace ?? DBNull.Value);
 
         using var r = cmd.ExecuteReader();
         while (r.Read())
@@ -415,7 +425,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
 
         // Pull a deeper pool from each ranker than we'll return, so RRF has signal.
         int pool = Math.Max(query.K * 4, 50);
-        var deepQuery = new SearchQuery(query.Text, K: pool, query.Namespace, SearchMode.Lexical);
+        var deepQuery = new SearchQuery(query.Text, K: pool, query.Namespace, SearchMode.Lexical, query.Namespaces);
 
         var lexHits = new Dictionary<string, (int rank, SearchHit hit)>();
         var lexRank = 0;
@@ -425,7 +435,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
             lexHits[h.Memory.Id.ToString()] = (lexRank, h);
         }
 
-        var vecQuery = new SearchQuery(query.Text, K: pool, query.Namespace, SearchMode.Vector);
+        var vecQuery = new SearchQuery(query.Text, K: pool, query.Namespace, SearchMode.Vector, query.Namespaces);
         var vecHits = new Dictionary<string, (int rank, SearchHit hit)>();
         var vecRank = 0;
         await foreach (var h in VectorSearchAsync(vecQuery, ct))
@@ -516,6 +526,49 @@ public sealed class SqliteMemoryStore : IMemoryStore
         return tokens.Length == 0
             ? "\"\""
             : string.Join(" ", tokens.Select(t => $"\"{t.Replace("\"", "\"\"")}\"*"));
+    }
+
+    private static bool HasNamespaceFilter(SearchQuery query)
+        => EffectiveNamespaces(query) is { Count: > 0 };
+
+    private static IReadOnlyList<string>? EffectiveNamespaces(SearchQuery query)
+    {
+        if (query.Namespaces is { Count: > 0 })
+            return query.Namespaces.Where(ns => !string.IsNullOrWhiteSpace(ns))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+        return string.IsNullOrWhiteSpace(query.Namespace)
+            ? null
+            : [query.Namespace];
+    }
+
+    private static string AddNamespaceFilter(
+        SqliteCommand cmd,
+        string column,
+        SearchQuery query,
+        bool leadingAnd = true)
+    {
+        var namespaces = EffectiveNamespaces(query);
+        if (namespaces is not { Count: > 0 })
+            return leadingAnd ? string.Empty : string.Empty;
+
+        var prefix = leadingAnd ? "AND " : "WHERE ";
+        if (namespaces.Count == 1)
+        {
+            cmd.Parameters.AddWithValue("@ns", namespaces[0]);
+            return $"{prefix}{column} = @ns";
+        }
+
+        var names = new List<string>(namespaces.Count);
+        for (var i = 0; i < namespaces.Count; i++)
+        {
+            var name = $"@ns{i}";
+            names.Add(name);
+            cmd.Parameters.AddWithValue(name, namespaces[i]);
+        }
+
+        return $"{prefix}{column} IN ({string.Join(", ", names)})";
     }
 
     private static byte[] FloatsToBytes(float[] v)

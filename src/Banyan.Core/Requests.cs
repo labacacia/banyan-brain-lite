@@ -19,7 +19,8 @@ public sealed record SearchQuery(
     string Text,
     int K = 10,
     string? Namespace = null,
-    SearchMode Mode = SearchMode.Hybrid
+    SearchMode Mode = SearchMode.Hybrid,
+    IReadOnlyList<string>? Namespaces = null
 );
 
 public enum SearchMode { Hybrid, Vector, Lexical }
