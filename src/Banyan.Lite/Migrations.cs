@@ -9,6 +9,7 @@ internal static class Migrations
     [
         (1, Migration001_Initial),
         (2, Migration002_Embeddings),
+        (3, Migration003_MemoryPools),
     ];
 
     public static async Task ApplyAsync(SqliteConnection conn, CancellationToken ct = default)
@@ -120,5 +121,32 @@ internal static class Migrations
             updated_at TEXT    NOT NULL
         );
         CREATE INDEX ix_embeddings_ns ON embeddings (namespace)
+        """;
+
+    // ── Migration 003: shared memory pool metadata ───────────────────────────
+
+    private const string Migration003_MemoryPools = """
+        CREATE TABLE memory_pools (
+            id         TEXT NOT NULL PRIMARY KEY,
+            name       TEXT NOT NULL UNIQUE,
+            scope      TEXT NOT NULL CHECK (scope IN ('personal','local_workspace','agent_session')),
+            owner_id   TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        );
+        CREATE TABLE pool_memberships (
+            pool_id     TEXT NOT NULL REFERENCES memory_pools(id) ON DELETE CASCADE,
+            member_id   TEXT NOT NULL,
+            member_type TEXT NOT NULL,
+            granted_at  TEXT NOT NULL,
+            PRIMARY KEY (pool_id, member_id)
+        );
+        CREATE TABLE memory_pool_bindings (
+            agent_id TEXT NOT NULL,
+            pool_id  TEXT NOT NULL REFERENCES memory_pools(id) ON DELETE CASCADE,
+            priority INTEGER NOT NULL DEFAULT 100,
+            bound_at TEXT NOT NULL,
+            PRIMARY KEY (agent_id, pool_id)
+        );
+        CREATE INDEX ix_pool_bindings_agent ON memory_pool_bindings (agent_id, priority, bound_at)
         """;
 }
