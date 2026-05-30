@@ -25,7 +25,7 @@ public sealed class NidAuthenticationOptions
     /// <summary>Always allow these paths through, regardless of <see cref="Mode"/> (liveness, manifest, CA discovery).</summary>
     public string[] PublicPaths { get; set; } =
     [
-        "/api/health", "/health",
+        "/api/health", "/health", "/alive",
         "/.nwm", "/.schema",
         "/v1/ca/cert", "/v1/crl", "/.well-known/nps-ca",
     ];

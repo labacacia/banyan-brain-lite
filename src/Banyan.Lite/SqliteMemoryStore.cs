@@ -53,6 +53,16 @@ public sealed class SqliteMemoryStore : IMemoryStore
     /// <summary>True when sqlite-vec was loaded and the <c>embeddings_vec</c> ANN index is in use.</summary>
     public bool VecEnabled => _vecEnabled;
 
+    /// <summary>Runs a lightweight readiness query against the open SQLite connection.</summary>
+    public async Task PingAsync(CancellationToken ct = default)
+    {
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT 1";
+        var value = await cmd.ExecuteScalarAsync(ct);
+        if (value is not long and not int)
+            throw new InvalidOperationException("SQLite readiness query returned an unexpected result.");
+    }
+
     // ── Write ─────────────────────────────────────────────────────────────────
 
     public async Task<MemoryId> WriteAsync(WriteRequest req, CancellationToken ct = default)

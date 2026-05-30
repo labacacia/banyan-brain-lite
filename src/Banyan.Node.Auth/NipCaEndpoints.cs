@@ -25,9 +25,10 @@ public static class NipCaEndpoints
     public sealed record RevokeRequest(
         [property: JsonPropertyName("reason")] string? Reason);
 
-    public static void Map(WebApplication app)
+    public static void Map(WebApplication app, bool mapHealth = true)
     {
-        app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("nip-ca");
+        if (mapHealth)
+            app.MapGet("/health", () => Results.Ok(new { status = "ok" })).WithTags("nip-ca");
 
         app.MapPost("/v1/agents/register", ([FromServices] EmbeddedNipCa ca, RegisterRequest body) =>
             RegisterAsync(ca, body, entityType: "agent")).WithTags("nip-ca");

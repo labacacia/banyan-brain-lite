@@ -99,6 +99,7 @@ public static class MemoryNodeApp
 
         // Liveness + manifest are publicly readable.
         app.MapGet("/api/health", () => Results.Ok(new { ok = true, role = "memory-node", version = "P3" }));
+        HealthEndpoints.Map(app);
         app.MapGet("/.nwm",      ([Microsoft.AspNetCore.Mvc.FromServices] BanyanNodeOptions o) =>
             Results.Json(BuildManifest(o, ca)));
 
@@ -109,7 +110,7 @@ public static class MemoryNodeApp
         // NPS-3 §8 NIP CA HTTP routes — mount when this node also acts as a CA.
         // Interoperates with the Go/Java NPS-CA references and our own RemoteNipCaClient.
         if (ca is not null)
-            NipCaEndpoints.Map(app);
+            NipCaEndpoints.Map(app, mapHealth: false);
 
         app.UseMemoryNode<BanyanMemoryProvider>(o =>
         {

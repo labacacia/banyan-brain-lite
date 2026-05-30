@@ -133,9 +133,9 @@ public static class WebApp
         builder.Services.AddSingleton(new NidAuthenticationOptions
         {
             Mode = opts.NidAuthMode,
-            PublicPaths =
-            [
-                "/api/health", "/health",
+                PublicPaths =
+                [
+                "/api/health", "/health", "/alive",
                 "/api/setup/status", "/api/setup/admin",
                 "/api/auth/login", "/api/auth/logout", "/api/auth/me",
                 "/.nwm", "/.schema",
@@ -252,6 +252,7 @@ public static class WebApp
         app.UseMiddleware<McpClientBrandMiddleware>();
 
         app.MapGet("/api/health", () => Results.Ok(new { ok = true, version = "P1.5-demo" }));
+        HealthEndpoints.Map(app);
         app.MapMcp("/mcp");
         MemoryEndpoints        .Map(app);
         KnowledgePackEndpoints .Map(app);
@@ -261,7 +262,7 @@ public static class WebApp
         if (app.Services.GetService<EmbeddedNipCa>() is not null)
         {
             AgentEndpoints.Map(app, requireAdmin: true);
-            NipCaEndpoints.Map(app);
+            NipCaEndpoints.Map(app, mapHealth: false);
         }
 
         app.MapRazorComponents<App>()
