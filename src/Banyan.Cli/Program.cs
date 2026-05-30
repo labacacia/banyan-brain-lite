@@ -22,6 +22,7 @@ return command switch
     "web" => await WebCommand.RunAsync(rest),
     "mcp" => await McpCommand.RunAsync(rest),
     "pack" => await PackCommand.RunAsync(rest),
+    "pool" => await PoolCommand.RunAsync(rest),
     "embedder" => await EmbedderCommand.RunAsync(rest),
     "serve" => await ServeCommand.RunAsync(rest),
     _ => Unknown(command),
@@ -101,6 +102,19 @@ static void PrintHelp()
           pack unmount ID
                     Unmount a pack id from a namespace
                       --namespace NS
+
+        Shared Memory Pools:
+          pool create NAME
+                    Create a local shared pool
+                      --scope personal|workspace|agent
+                      --owner ID
+                      --db PATH
+          pool list
+                    List local shared pools
+          pool add-member POOL MEMBER
+                    Add a member and bind that agent to the pool
+          pool remove-member POOL MEMBER
+                    Remove a member from a pool
 
         Demo:
           web       Start the demo web UI (default: http://localhost:5180)
