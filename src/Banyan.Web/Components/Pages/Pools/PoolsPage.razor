@@ -1,16 +1,200 @@
 @page "/pools"
 @attribute [Authorize]
+@inject IMemoryPoolRepository Pools
+@inject IMessageService Messages
 
 <PageTitle>Pools — Banyan</PageTitle>
 
-<Empty
-    Description="@("Shared memory pools are coming in Banyan Lite 1.1.0")"
-    Style="padding: 48px 0;">
-    <ChildContent>
-        <p style="color: rgba(0,0,0,0.45); max-width: 420px; margin: 0 auto;">
-            Pools let you create named memory scopes shared across agents.
-            Levels: <Tag>personal</Tag> <Tag>local_workspace</Tag> <Tag>agent_session</Tag>.
-            Pool management CLI commands and this UI panel will be available in the 1.1.0 release.
-        </p>
-    </ChildContent>
-</Empty>
+<Row Gutter="16">
+    <AntDesign.Col Span="8">
+        <Card Title="Create pool" Bordered="false">
+            <Form Model="_create" Layout="@FormLayout.Vertical">
+                <FormItem Label="Name">
+                    <Input @bind-Value="_create.Name" Placeholder="project-notes" />
+                </FormItem>
+                <FormItem Label="Scope">
+                    <Select TItem="string" TItemValue="string" @bind-Value="_create.Scope">
+                        <SelectOptions>
+                            <SelectOption TItem="string" TItemValue="string" Value="@MemoryPoolScopes.Personal" Label="personal" />
+                            <SelectOption TItem="string" TItemValue="string" Value="@MemoryPoolScopes.LocalWorkspace" Label="local_workspace" />
+                            <SelectOption TItem="string" TItemValue="string" Value="@MemoryPoolScopes.AgentSession" Label="agent_session" />
+                        </SelectOptions>
+                    </Select>
+                </FormItem>
+                <FormItem Label="Owner">
+                    <Input @bind-Value="_create.OwnerId" Placeholder="local-user" />
+                </FormItem>
+                <Button Type="@ButtonType.Primary" OnClick="CreatePool" Loading="_busy" Block>Create</Button>
+            </Form>
+        </Card>
+
+        <Card Title="Members" Bordered="false" Style="margin-top: 16px;">
+            <Form Model="_member" Layout="@FormLayout.Vertical">
+                <FormItem Label="Pool">
+                    <Select TItem="PoolVm" TItemValue="string" @bind-Value="_member.PoolId">
+                        <SelectOptions>
+                            @foreach (var pool in _pools)
+                            {
+                                <SelectOption TItem="PoolVm" TItemValue="string" Value="@pool.Id" Label="@pool.Name" />
+                            }
+                        </SelectOptions>
+                    </Select>
+                </FormItem>
+                <FormItem Label="Member id">
+                    <Input @bind-Value="_member.MemberId" Placeholder="agent-a" />
+                </FormItem>
+                <FormItem Label="Type">
+                    <Input @bind-Value="_member.MemberType" Placeholder="agent" />
+                </FormItem>
+                <Space>
+                    <Button OnClick="AddMember" Loading="_busy">Add</Button>
+                    <Button Danger OnClick="RemoveMember" Loading="_busy">Remove</Button>
+                </Space>
+            </Form>
+        </Card>
+    </AntDesign.Col>
+
+    <AntDesign.Col Span="16">
+        <Card Title="Shared pools" Bordered="false">
+            <Table TItem="PoolVm" DataSource="_pools" Loading="_loading" RowKey="p => p.Id" Size="@TableSize.Small">
+                <Column TData="string" Title="Name">@context.Name</Column>
+                <Column TData="string" Title="Scope">
+                    <Tag>@context.Scope</Tag>
+                </Column>
+                <Column TData="string" Title="Owner">@context.OwnerId</Column>
+                <Column TData="string" Title="Namespace">
+                    <Text Code>@context.Namespace</Text>
+                </Column>
+                <Column TData="DateTimeOffset" Title="Created">@context.CreatedAt.ToLocalTime().ToString("g")</Column>
+            </Table>
+        </Card>
+    </AntDesign.Col>
+</Row>
+
+@code {
+    private bool _busy;
+    private bool _loading = true;
+    private List<PoolVm> _pools = [];
+    private readonly CreateForm _create = new();
+    private readonly MemberForm _member = new();
+
+    protected override async Task OnInitializedAsync() => await Refresh();
+
+    private async Task Refresh()
+    {
+        _loading = true;
+        try
+        {
+            var pools = await Pools.ListAsync();
+            _pools = pools.Select(PoolVm.From).ToList();
+            _member.PoolId ??= _pools.FirstOrDefault()?.Id;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task CreatePool()
+    {
+        if (string.IsNullOrWhiteSpace(_create.Name))
+        {
+            await Messages.Warning("Pool name is required.");
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var pool = await Pools.CreateAsync(_create.Name, _create.Scope, _create.OwnerId);
+            _member.PoolId = pool.Id;
+            _create.Name = "";
+            await Refresh();
+            await Messages.Success("Pool created.");
+        }
+        catch (Exception ex)
+        {
+            await Messages.Error(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task AddMember()
+    {
+        if (!ValidateMemberForm()) return;
+
+        _busy = true;
+        try
+        {
+            await Pools.AddMemberAsync(_member.PoolId!, _member.MemberId, _member.MemberType);
+            await Pools.BindAgentAsync(_member.MemberId, _member.PoolId!);
+            await Messages.Success("Member added.");
+        }
+        catch (Exception ex)
+        {
+            await Messages.Error(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RemoveMember()
+    {
+        if (!ValidateMemberForm()) return;
+
+        _busy = true;
+        try
+        {
+            await Pools.RemoveMemberAsync(_member.PoolId!, _member.MemberId);
+            await Messages.Success("Member removed.");
+        }
+        catch (Exception ex)
+        {
+            await Messages.Error(ex.Message);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private bool ValidateMemberForm()
+        => !string.IsNullOrWhiteSpace(_member.PoolId)
+           && !string.IsNullOrWhiteSpace(_member.MemberId);
+
+    private sealed class CreateForm
+    {
+        public string Name { get; set; } = "";
+        public string Scope { get; set; } = MemoryPoolScopes.LocalWorkspace;
+        public string OwnerId { get; set; } = Environment.UserName;
+    }
+
+    private sealed class MemberForm
+    {
+        public string? PoolId { get; set; }
+        public string MemberId { get; set; } = "";
+        public string MemberType { get; set; } = "agent";
+    }
+
+    private sealed record PoolVm(
+        string Id,
+        string Name,
+        string Scope,
+        string OwnerId,
+        DateTimeOffset CreatedAt,
+        string Namespace)
+    {
+        public static PoolVm From(MemoryPool pool) => new(
+            pool.Id,
+            pool.Name,
+            pool.Scope,
+            pool.OwnerId,
+            pool.CreatedAt,
+            LiteMemoryPool.Namespace(pool.Id));
+    }
+}
