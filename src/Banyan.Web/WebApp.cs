@@ -49,6 +49,8 @@ public static class WebApp
             $"Data Source={memoryDb}", embedder, opts.SqliteVecLibPath, ct);
         builder.Services.AddSingleton(embedder);
         builder.Services.AddSingleton(memoryStore);
+        builder.Services.AddSingleton<IMemoryPoolRepository>(
+            await SqliteMemoryPoolRepository.OpenAsync($"Data Source={memoryDb}", ct));
         if (memoryStore.VecEnabled)
             Console.WriteLine($"[store] sqlite-vec ANN index ready: embeddings_vec");
 
