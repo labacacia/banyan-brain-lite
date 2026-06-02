@@ -204,6 +204,7 @@ public static class WebApp
         {
             authz.AddPolicy("admin", p => p.RequireRole("admin", "ADMIN"));
         });
+        builder.Services.AddAntiforgery();
         builder.Services.AddRazorComponents()
             .AddInteractiveServerComponents();
         builder.Services.AddAntDesign();
@@ -242,7 +243,22 @@ public static class WebApp
         // sees the synthesised header.
         app.UseSessionCookie();
         app.UseAuthentication();
+        app.Use(async (ctx, next) =>
+        {
+            if (IsBrowserPageRequest(ctx)
+                && ctx.User.Identity?.IsAuthenticated != true
+                && await AdminBootstrapper.HasAdminAsync(
+                    ctx.RequestServices.GetRequiredService<SqliteIdentityStore>(),
+                    ctx.RequestAborted))
+            {
+                ctx.Response.Redirect("/login");
+                return;
+            }
+
+            await next();
+        });
         app.UseAuthorization();
+        app.UseAntiforgery();
         app.MapOlsOidcEndpoints();
         BrowserAuthEndpoints.Map(app);
         SetupEndpoints.Map(app);
@@ -277,5 +293,26 @@ public static class WebApp
         Console.WriteLine("  identity  : enabled (first-run admin setup enforced)");
 
         await app.RunAsync(ct);
+    }
+
+    private static bool IsBrowserPageRequest(HttpContext ctx)
+    {
+        if (!HttpMethods.IsGet(ctx.Request.Method))
+            return false;
+
+        var path = ctx.Request.Path.Value ?? "/";
+        if (path is "/login" or "/setup")
+            return false;
+
+        if (path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/v1/", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/.well-known/", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/_blazor", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/_framework", StringComparison.OrdinalIgnoreCase)
+            || path.StartsWith("/mcp", StringComparison.OrdinalIgnoreCase)
+            || path is "/alive" or "/health" or "/.nwm" or "/.schema")
+            return false;
+
+        return !Path.HasExtension(path);
     }
 }
