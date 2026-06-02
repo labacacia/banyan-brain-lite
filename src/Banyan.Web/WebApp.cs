@@ -29,14 +29,24 @@ public static class WebApp
     /// </summary>
     public static async Task RunAsync(WebOptions opts, string[]? rawArgs = null, CancellationToken ct = default)
     {
-        // AppContext.BaseDirectory is the directory of the host executable. However, when running
-        // via `dotnet run` in development, the default content root resolves static web assets
-        // (including _framework/blazor.web.js) from the MSBuild manifest. Only override when the
-        // environment variable signals a published/tool deployment scenario.
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-        {
-            Args = rawArgs ?? Array.Empty<string>(),
-        });
+        // AppContext.BaseDirectory is the directory of the host executable. Published and
+        // dotnet-tool deployments place wwwroot there; source runs should keep the default
+        // content root so MSBuild static-web-assets discovery continues to work.
+        var executableRoot = AppContext.BaseDirectory;
+        var publishedWebRoot = Path.Combine(executableRoot, "wwwroot");
+        var appOptions = Directory.Exists(publishedWebRoot)
+            ? new WebApplicationOptions
+            {
+                Args = rawArgs ?? Array.Empty<string>(),
+                ContentRootPath = executableRoot,
+                WebRootPath = publishedWebRoot,
+            }
+            : new WebApplicationOptions
+            {
+                Args = rawArgs ?? Array.Empty<string>(),
+            };
+
+        var builder = WebApplication.CreateBuilder(appOptions);
         builder.WebHost.UseUrls(opts.Urls);
         builder.Services.AddSingleton(opts);
         builder.Services.AddHttpClient();
