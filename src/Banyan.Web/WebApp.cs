@@ -29,14 +29,13 @@ public static class WebApp
     /// </summary>
     public static async Task RunAsync(WebOptions opts, string[]? rawArgs = null, CancellationToken ct = default)
     {
-        // AppContext.BaseDirectory is the directory of the host executable regardless of whether
-        // the app is single-file or multi-file, replacing Assembly.Location which is empty in SFAs.
-        var contentRoot = AppContext.BaseDirectory;
+        // AppContext.BaseDirectory is the directory of the host executable. However, when running
+        // via `dotnet run` in development, the default content root resolves static web assets
+        // (including _framework/blazor.web.js) from the MSBuild manifest. Only override when the
+        // environment variable signals a published/tool deployment scenario.
         var builder = WebApplication.CreateBuilder(new WebApplicationOptions
         {
-            Args            = rawArgs ?? Array.Empty<string>(),
-            ContentRootPath = contentRoot,
-            WebRootPath     = Path.Combine(contentRoot, "wwwroot"),
+            Args = rawArgs ?? Array.Empty<string>(),
         });
         builder.WebHost.UseUrls(opts.Urls);
         builder.Services.AddSingleton(opts);
@@ -242,7 +241,28 @@ public static class WebApp
         // sees the synthesised header.
         app.UseSessionCookie();
         app.UseAuthentication();
+
+        // Redirect unauthenticated browser requests to /login (JWT Bearer returns 401 by default
+        // which is correct for APIs but unhelpful for browser navigation to Blazor pages).
+        // Must wrap UseAuthorization so we can intercept the 401 after it short-circuits.
+        app.Use(async (ctx, next) =>
+        {
+            await next();
+            if (ctx.Response.StatusCode == 401
+                && !ctx.Response.HasStarted
+                && !ctx.Request.Path.StartsWithSegments("/api")
+                && !ctx.Request.Path.StartsWithSegments("/v1")
+                && !ctx.Request.Path.StartsWithSegments("/mcp")
+                && !ctx.Request.Path.StartsWithSegments("/_blazor")
+                && !ctx.Request.Path.StartsWithSegments("/_framework")
+                && !ctx.Request.Headers.ContainsKey("Authorization"))
+            {
+                ctx.Response.Redirect("/login");
+            }
+        });
+
         app.UseAuthorization();
+        app.UseAntiforgery();
         app.MapOlsOidcEndpoints();
         BrowserAuthEndpoints.Map(app);
         SetupEndpoints.Map(app);
@@ -269,6 +289,7 @@ public static class WebApp
 
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
+        app.MapStaticAssets();
 
         Console.WriteLine($"Banyan demo web UI listening on {opts.Urls}");
         Console.WriteLine($"  memory.db : {memoryDb}");

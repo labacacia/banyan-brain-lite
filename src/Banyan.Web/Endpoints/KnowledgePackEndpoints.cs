@@ -134,7 +134,7 @@ public static class KnowledgePackEndpoints
 
         // Unmount a pack.
         g.MapDelete("/mount", async (
-            UnmountRequest body,
+            [FromBody] UnmountRequest body,
             FileKnowledgePackMountRegistry registry) =>
         {
             var removed = await registry.UnmountAsync(body.PackId, body.Namespace, body.Version);
