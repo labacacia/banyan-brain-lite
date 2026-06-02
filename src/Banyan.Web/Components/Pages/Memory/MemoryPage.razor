@@ -81,7 +81,7 @@
                         @context.UpdatedAt.LocalDateTime.ToString("MM-dd HH:mm")
                     </Column>
                     <ActionColumn Width="70">
-                        <Button Size="@ButtonSize.Small" OnClick="() => OpenDetail(context)">Detail</Button>
+                        <Button Size="@ButtonSize.Small" OnClick="@(() => OpenDetail(context))">Detail</Button>
                     </ActionColumn>
                 </Table>
             }
@@ -90,10 +90,10 @@
 </Row>
 
 <!-- Detail Drawer -->
-<Drawer Visible="_drawerVisible"
+<Drawer Visible="@_drawerVisible"
         Title="@("Memory detail")"
         Width="640"
-        OnClose="CloseDrawer">
+        OnClose="@CloseDrawer">
     @if (_detail is not null)
     {
         <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small" Style="margin-bottom: 16px;">
@@ -112,7 +112,7 @@
         </Card>
 
         <div style="margin-bottom: 16px; display: flex; justify-content: flex-end;">
-            <Popconfirm Title="Forget this memory?" OnConfirm="ForgetCurrent">
+            <Popconfirm Title="Forget this memory?" OnConfirm="@ForgetCurrent">
                 <Button Danger Size="@ButtonSize.Small" Loading="_forgetting">Forget</Button>
             </Popconfirm>
         </div>
