@@ -5,12 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <base href="/" />
     <title>Banyan</title>
+    <link rel="stylesheet" href="_content/AntDesign/css/ant-design-blazor.css" />
     <HeadOutlet @rendermode="@RenderMode.InteractiveServer" />
 </head>
 <body>
     <Routes @rendermode="@RenderMode.InteractiveServer" />
     <AntContainer />
-    <script src="_framework/blazor.server.js"></script>
+    <script src="_content/AntDesign/js/ant-design-blazor.js"></script>
+    <script src="_framework/blazor.web.js"></script>
     <script src="js/banyan.js"></script>
 </body>
 </html>
