@@ -77,6 +77,19 @@ public sealed class HealthEndpointTests
         Assert.Equal("degraded", body.GetProperty("checks").GetProperty("embedder").GetProperty("status").GetString());
     }
 
+    [Fact]
+    public async Task MissingRoute_ReturnsProblemDetails()
+    {
+        await using var fixture = await HealthAppFixture.StartAsync(new HashingEmbedder());
+
+        var resp = await fixture.Client.GetAsync("/does-not-exist");
+
+        Assert.Equal(HttpStatusCode.NotFound, resp.StatusCode);
+        Assert.Equal("application/problem+json", resp.Content.Headers.ContentType?.MediaType);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal(404, body.GetProperty("status").GetInt32());
+    }
+
     private sealed class HealthAppFixture : IAsyncDisposable
     {
         private readonly WebApplication _app;
@@ -96,9 +109,12 @@ public sealed class HealthEndpointTests
             var store = await SqliteMemoryStore.OpenInMemoryAsync(embedder);
             var builder = WebApplication.CreateBuilder();
             builder.WebHost.UseUrls("http://127.0.0.1:0");
+            builder.Services.AddProblemDetails();
             builder.Services.AddSingleton(store);
             builder.Services.AddSingleton(embedder);
             var app = builder.Build();
+            app.UseExceptionHandler();
+            app.UseStatusCodePages();
             HealthEndpoints.Map(app);
             await app.StartAsync();
 
