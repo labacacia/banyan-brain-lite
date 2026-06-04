@@ -16,7 +16,10 @@ public sealed class SqliteNipCaStoreTests : IAsyncLifetime
         string entityType = "agent",
         string[]? caps = null,
         string pubKey = "ed25519:abc123",
-        DateTime? issuedAt = null) =>
+        DateTime? issuedAt = null,
+        string? nidRole = null,
+        string? parentNid = null,
+        string? lineageJson = null) =>
         new()
         {
             Nid           = $"urn:nps:{entityType}:local.banyan:{id}",
@@ -29,6 +32,9 @@ public sealed class SqliteNipCaStoreTests : IAsyncLifetime
             IssuedBy      = "urn:nps:ca:local.banyan:root",
             IssuedAt      = issuedAt ?? DateTime.UtcNow,
             ExpiresAt     = (issuedAt ?? DateTime.UtcNow).AddDays(30),
+            NidRole       = nidRole,
+            ParentNid     = parentNid,
+            LineageJson   = lineageJson,
         };
 
     [Fact]
@@ -77,6 +83,26 @@ public sealed class SqliteNipCaStoreTests : IAsyncLifetime
         var f = await _store.GetBySerialAsync("00000000000000bb", default);
         Assert.NotNull(f);
         Assert.Contains("carol", f!.Nid);
+    }
+
+    [Fact]
+    public async Task GetByParentNid_ReturnsLineageChildren()
+    {
+        var parent = "urn:nps:group:local.banyan:ops";
+        var child = MakeRecord("session-a", "00000000000000cc",
+            nidRole: "session",
+            parentNid: parent,
+            lineageJson: """{"parent_nid":"urn:nps:group:local.banyan:ops"}""");
+        await _store.SaveAsync(child, default);
+        await _store.SaveAsync(MakeRecord("other", "00000000000000cd"), default);
+
+        var children = await _store.GetByParentNidAsync(parent, default);
+
+        var found = Assert.Single(children);
+        Assert.Equal(child.Nid, found.Nid);
+        Assert.Equal("session", found.NidRole);
+        Assert.Equal(parent, found.ParentNid);
+        Assert.NotNull(found.LineageJson);
     }
 
     [Fact]

@@ -42,6 +42,17 @@ public sealed class SqliteNipCaStore : INipCaStore, IDisposable, IAsyncDisposabl
     public async Task<NipCertRecord?> GetBySerialAsync(string serial, CancellationToken ct)
         => await FindOneAsync("serial = @v", serial, ct);
 
+    public async Task<IReadOnlyList<NipCertRecord>> GetByParentNidAsync(string parentNid, CancellationToken ct)
+    {
+        var list = new List<NipCertRecord>();
+        using var cmd = _conn.CreateCommand();
+        cmd.CommandText = $"{SelectColumns} FROM nip_certs WHERE parent_nid = @parent ORDER BY issued_at DESC";
+        cmd.Parameters.AddWithValue("@parent", parentNid);
+        using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct)) list.Add(Read(r));
+        return list;
+    }
+
     public async Task<IReadOnlyList<NipCertRecord>> GetRevokedAsync(CancellationToken ct)
     {
         var list = new List<NipCertRecord>();
@@ -78,10 +89,12 @@ public sealed class SqliteNipCaStore : INipCaStore, IDisposable, IAsyncDisposabl
         await ExecAsync("""
             INSERT INTO nip_certs
                 (nid, serial, entity_type, pub_key, capabilities, scope_json, metadata_json,
-                 issued_by, issued_at, expires_at, revoked_at, revoke_reason)
+                 issued_by, issued_at, expires_at, revoked_at, revoke_reason,
+                 nid_role, parent_nid, lineage_json)
             VALUES
                 (@nid, @serial, @et, @pk, @caps, @scope, @meta,
-                 @issuer, @ia, @ea, @ra, @rr)
+                 @issuer, @ia, @ea, @ra, @rr,
+                 @nidRole, @parentNid, @lineage)
             ON CONFLICT (nid) DO UPDATE SET
                 serial        = excluded.serial,
                 entity_type   = excluded.entity_type,
@@ -93,7 +106,10 @@ public sealed class SqliteNipCaStore : INipCaStore, IDisposable, IAsyncDisposabl
                 issued_at     = excluded.issued_at,
                 expires_at    = excluded.expires_at,
                 revoked_at    = excluded.revoked_at,
-                revoke_reason = excluded.revoke_reason
+                revoke_reason = excluded.revoke_reason,
+                nid_role      = excluded.nid_role,
+                parent_nid    = excluded.parent_nid,
+                lineage_json  = excluded.lineage_json
             """,
             ("@nid",    record.Nid),
             ("@serial", record.Serial),
@@ -106,7 +122,10 @@ public sealed class SqliteNipCaStore : INipCaStore, IDisposable, IAsyncDisposabl
             ("@ia",     ToIso(record.IssuedAt)),
             ("@ea",     ToIso(record.ExpiresAt)),
             ("@ra",     N(record.RevokedAt is { } rdt ? ToIso(rdt) : null)),
-            ("@rr",     N(record.RevokeReason)));
+            ("@rr",     N(record.RevokeReason)),
+            ("@nidRole", N(record.NidRole)),
+            ("@parentNid", N(record.ParentNid)),
+            ("@lineage", N(record.LineageJson)));
     }
 
     /// <summary>Convenience for CLI: list all certs, optionally revoked-only.</summary>
@@ -137,7 +156,8 @@ public sealed class SqliteNipCaStore : INipCaStore, IDisposable, IAsyncDisposabl
 
     private const string SelectColumns =
         "SELECT nid, serial, entity_type, pub_key, capabilities, scope_json, metadata_json, " +
-        "issued_by, issued_at, expires_at, revoked_at, revoke_reason";
+        "issued_by, issued_at, expires_at, revoked_at, revoke_reason, " +
+        "nid_role, parent_nid, lineage_json";
 
     private async Task<NipCertRecord?> FindOneAsync(string whereClause, string value, CancellationToken ct)
     {
@@ -165,6 +185,9 @@ public sealed class SqliteNipCaStore : INipCaStore, IDisposable, IAsyncDisposabl
             ExpiresAt     = DateTime.Parse(r.GetString(9), null, System.Globalization.DateTimeStyles.RoundtripKind).ToUniversalTime(),
             RevokedAt     = r.IsDBNull(10) ? null : DateTime.Parse(r.GetString(10), null, System.Globalization.DateTimeStyles.RoundtripKind).ToUniversalTime(),
             RevokeReason  = r.IsDBNull(11) ? null! : r.GetString(11),
+            NidRole       = r.IsDBNull(12) ? null! : r.GetString(12),
+            ParentNid     = r.IsDBNull(13) ? null! : r.GetString(13),
+            LineageJson   = r.IsDBNull(14) ? null! : r.GetString(14),
         };
     }
 

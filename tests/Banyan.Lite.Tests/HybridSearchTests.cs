@@ -85,4 +85,21 @@ public sealed class HybridSearchTests : IAsyncLifetime
         Assert.NotNull(hits[0].LexicalRank);
         Assert.Null(hits[0].VectorRank);
     }
+
+    [Fact]
+    public async Task HybridSearch_UsesRetrievalOptionsForFinalFallbackK()
+    {
+        await using var tuned = await SqliteMemoryStore.OpenInMemoryAsync(
+            new HashingEmbedder(),
+            retrieval: new RetrievalOptions(RrfK: 10, VectorTopK: 8, LexicalTopK: 8, FinalTopK: 2));
+        await tuned.WriteAsync(new WriteRequest("alpha one"));
+        await tuned.WriteAsync(new WriteRequest("alpha two"));
+        await tuned.WriteAsync(new WriteRequest("alpha three"));
+
+        var hits = new List<SearchHit>();
+        await foreach (var h in tuned.SearchAsync(new SearchQuery("alpha", K: 0, Mode: SearchMode.Hybrid)))
+            hits.Add(h);
+
+        Assert.Equal(2, hits.Count);
+    }
 }

@@ -7,7 +7,7 @@ namespace Banyan.Embedders;
 
 /// <summary>
 /// Real semantic embedder backed by an ONNX BERT-family model + WordPiece tokenizer.
-/// Default config targets <c>bge-small-zh-v1.5</c> (Xenova INT8, 384-dim, multilingual-leaning Chinese).
+/// Default config targets <c>all-MiniLM-L6-v2</c> (Xenova INT8, 384-dim, language-neutral for Lite defaults).
 /// Drop-in replacement: swap <see cref="OnnxEmbedderOptions.ModelPath"/> + <see cref="OnnxEmbedderOptions.VocabPath"/>
 /// for <c>all-MiniLM-L6-v2</c> (English) or any other BERT WordPiece model with a vocab.txt.
 /// </summary>

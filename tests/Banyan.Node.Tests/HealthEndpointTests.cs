@@ -26,6 +26,18 @@ public sealed class HealthEndpointTests
     }
 
     [Fact]
+    public async Task Healthz_ReturnsImmediately()
+    {
+        await using var fixture = await HealthAppFixture.StartAsync(new HashingEmbedder());
+
+        var resp = await fixture.Client.GetAsync("/healthz");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("alive", body.GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task Health_ReturnsOk_WhenSqliteAndEmbedderAreReady()
     {
         await using var fixture = await HealthAppFixture.StartAsync(new HashingEmbedder());
@@ -37,6 +49,18 @@ public sealed class HealthEndpointTests
         Assert.Equal("ok", body.GetProperty("status").GetString());
         Assert.Equal("ok", body.GetProperty("checks").GetProperty("sqlite").GetProperty("status").GetString());
         Assert.Equal("ok", body.GetProperty("checks").GetProperty("embedder").GetProperty("status").GetString());
+    }
+
+    [Fact]
+    public async Task Readyz_ReturnsOk_WhenSqliteAndEmbedderAreReady()
+    {
+        await using var fixture = await HealthAppFixture.StartAsync(new HashingEmbedder());
+
+        var resp = await fixture.Client.GetAsync("/readyz");
+
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("ok", body.GetProperty("status").GetString());
     }
 
     [Fact]

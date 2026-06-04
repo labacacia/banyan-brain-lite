@@ -12,21 +12,21 @@ internal static class EmbedderCommand
     private static readonly EmbedderProfile[] Profiles =
     [
         new(
-            Id: "bge-small-zh-v1.5",
-            Description: "Default Lite/Pro multilingual profile, strong for Chinese and mixed Chinese/English memory.",
-            ModelUrl: "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/onnx/model_quantized.onnx",
-            VocabUrl: "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/vocab.txt",
-            ModelId: "bge-small-zh-v1.5.onnx.q8",
-            Dimensions: 384,
-            QueryPrefix: "为这个句子生成表示以用于检索相关文章："),
-        new(
             Id: "all-MiniLM-L6-v2",
-            Description: "Small English-first sentence embedding profile, useful for English docs and code-heavy memory.",
+            Description: "Default Lite profile, small language-neutral sentence embedding model for English and mixed corpora.",
             ModelUrl: "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx",
             VocabUrl: "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/vocab.txt",
             ModelId: "all-MiniLM-L6-v2.onnx.q8",
             Dimensions: 384,
-            QueryPrefix: "")
+            QueryPrefix: ""),
+        new(
+            Id: "bge-small-zh-v1.5",
+            Description: "Chinese-first BGE profile, strong for Chinese and mixed Chinese/English memory.",
+            ModelUrl: "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/onnx/model_quantized.onnx",
+            VocabUrl: "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/vocab.txt",
+            ModelId: "bge-small-zh-v1.5.onnx.q8",
+            Dimensions: 384,
+            QueryPrefix: "为这个句子生成表示以用于检索相关文章：")
     ];
     private const string SqliteVecVersion  = "v0.1.9";
     private const string SqliteVecBaseUrl  =
@@ -247,7 +247,7 @@ internal static class EmbedderCommand
               profiles   List curated local embedder profiles
               download   Pull a curated ONNX model + BERT WordPiece vocab,
                          plus the sqlite-vec loadable extension (~60 KB).
-                           --model ID         bge-small-zh-v1.5 | all-MiniLM-L6-v2
+                           --model ID         all-MiniLM-L6-v2 | bge-small-zh-v1.5
                            --model-out PATH    (default: ~/.banyan/embedder/model.onnx)
                            --vocab-out PATH    (default: ~/.banyan/embedder/vocab.txt)
                            --model-url URL     override curated model URL
