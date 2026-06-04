@@ -50,6 +50,7 @@ public static class WebApp
         builder.WebHost.UseUrls(opts.Urls);
         builder.Services.AddSingleton(opts);
         builder.Services.AddHttpClient();
+        builder.Services.AddProblemDetails();
 
         var memoryDb = WebOptions.ExpandHome(opts.MemoryDbPath);
         Directory.CreateDirectory(Path.GetDirectoryName(memoryDb)!);
@@ -245,6 +246,8 @@ public static class WebApp
             await next();
         });
 
+        app.UseExceptionHandler();
+        app.UseStatusCodePages();
         app.UseStaticFiles();
 
         // Cookie-to-bearer lifter must run BEFORE UseAuthentication so the JWT validator

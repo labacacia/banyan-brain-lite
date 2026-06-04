@@ -67,6 +67,7 @@ public static class MemoryNodeApp
         builder.Services.AddSingleton<NipIdentVerifier>();
 
         // ── NWP DI: Memory Node provider + global NWP options ────────────────
+        builder.Services.AddProblemDetails();
         builder.Services.AddNwp(o =>
         {
             o.DefaultLimit       = opts.DefaultLimit;
@@ -91,6 +92,8 @@ public static class MemoryNodeApp
 
         // ── Build pipeline ────────────────────────────────────────────────────
         var app = builder.Build();
+        app.UseExceptionHandler();
+        app.UseStatusCodePages();
         app.UseDefaultFiles();
         app.UseStaticFiles();
         // Same gate as Banyan.Web: NID middleware only meaningful when a verifier is in DI.
