@@ -10,9 +10,9 @@ namespace Banyan.Cli.Commands;
 internal static class EmbedderCommand
 {
     private const string DefaultModelUrl =
-        "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/onnx/model_quantized.onnx";
+        "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/onnx/model_quantized.onnx";
     private const string DefaultVocabUrl =
-        "https://huggingface.co/Xenova/bge-small-zh-v1.5/resolve/main/vocab.txt";
+        "https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/main/vocab.txt";
     private const string SqliteVecVersion  = "v0.1.9";
     private const string SqliteVecBaseUrl  =
         "https://github.com/asg017/sqlite-vec/releases/download/v0.1.9";

@@ -18,20 +18,19 @@ public sealed class SqliteMemoryStore : IMemoryStore
     private readonly SqliteConnection _conn;
     private readonly IEmbedder?       _embedder;
     private readonly bool             _vecEnabled;
+    private readonly RetrievalOptions _retrieval;
 
-    /// <summary>RRF rank-fusion constant (Cormack et al, 2009): 60 in the original paper.</summary>
-    private const int RrfK = 60;
-
-    private SqliteMemoryStore(SqliteConnection conn, IEmbedder? embedder, bool vecEnabled)
+    private SqliteMemoryStore(SqliteConnection conn, IEmbedder? embedder, bool vecEnabled, RetrievalOptions retrieval)
     {
         _conn = conn;
         _embedder = embedder;
         _vecEnabled = vecEnabled;
+        _retrieval = retrieval;
     }
 
     public static async Task<SqliteMemoryStore> OpenAsync(
         string connectionString, IEmbedder? embedder = null,
-        string? sqliteVecLibPath = null, CancellationToken ct = default)
+        string? sqliteVecLibPath = null, RetrievalOptions? retrieval = null, CancellationToken ct = default)
     {
         var conn = new SqliteConnection(connectionString);
         await conn.OpenAsync(ct);
@@ -40,12 +39,12 @@ public sealed class SqliteMemoryStore : IMemoryStore
         bool vecEnabled = embedder is not null && SqliteVecLoader.TryLoad(conn, sqliteVecLibPath);
         await Migrations.ApplyAsync(conn, ct);
         if (vecEnabled) await EnsureVecIndexAsync(conn, embedder!.Dimensions, ct);
-        return new SqliteMemoryStore(conn, embedder, vecEnabled);
+        return new SqliteMemoryStore(conn, embedder, vecEnabled, retrieval ?? RetrievalOptions.FromEnvironment());
     }
 
     public static Task<SqliteMemoryStore> OpenInMemoryAsync(
-        IEmbedder? embedder = null, string? sqliteVecLibPath = null, CancellationToken ct = default)
-        => OpenAsync("Data Source=:memory:", embedder, sqliteVecLibPath, ct);
+        IEmbedder? embedder = null, string? sqliteVecLibPath = null, RetrievalOptions? retrieval = null, CancellationToken ct = default)
+        => OpenAsync("Data Source=:memory:", embedder, sqliteVecLibPath, retrieval, ct);
 
     /// <summary>True when an embedder is configured; required for vector/hybrid search.</summary>
     public bool HasEmbedder => _embedder is not null;
@@ -424,8 +423,10 @@ public sealed class SqliteMemoryStore : IMemoryStore
         }
 
         // Pull a deeper pool from each ranker than we'll return, so RRF has signal.
-        int pool = Math.Max(query.K * 4, 50);
-        var deepQuery = new SearchQuery(query.Text, K: pool, query.Namespace, SearchMode.Lexical, query.Namespaces);
+        var finalK = query.K > 0 ? query.K : _retrieval.FinalTopK;
+        var lexicalPool = Math.Max(_retrieval.LexicalTopK, finalK);
+        var vectorPool = Math.Max(_retrieval.VectorTopK, finalK);
+        var deepQuery = new SearchQuery(query.Text, K: lexicalPool, query.Namespace, SearchMode.Lexical, query.Namespaces);
 
         var lexHits = new Dictionary<string, (int rank, SearchHit hit)>();
         var lexRank = 0;
@@ -435,7 +436,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
             lexHits[h.Memory.Id.ToString()] = (lexRank, h);
         }
 
-        var vecQuery = new SearchQuery(query.Text, K: pool, query.Namespace, SearchMode.Vector, query.Namespaces);
+        var vecQuery = new SearchQuery(query.Text, K: vectorPool, query.Namespace, SearchMode.Vector, query.Namespaces);
         var vecHits = new Dictionary<string, (int rank, SearchHit hit)>();
         var vecRank = 0;
         await foreach (var h in VectorSearchAsync(vecQuery, ct))
@@ -455,15 +456,15 @@ public sealed class SqliteMemoryStore : IMemoryStore
             int? vr = vecHits.TryGetValue(id, out var v) ? v.rank : (int?)null;
 
             double score = 0;
-            if (lr is { } x) score += 1.0 / (RrfK + x);
-            if (vr is { } y) score += 1.0 / (RrfK + y);
+            if (lr is { } x) score += 1.0 / (_retrieval.RrfK + x);
+            if (vr is { } y) score += 1.0 / (_retrieval.RrfK + y);
 
             var baseHit = (vecHits.TryGetValue(id, out var vh) ? vh.hit
                           : lexHits[id].hit);
             fused.Add((baseHit, score, lr, vr));
         }
 
-        foreach (var (baseHit, score, lr, vr) in fused.OrderByDescending(t => t.score).Take(query.K))
+        foreach (var (baseHit, score, lr, vr) in fused.OrderByDescending(t => t.score).Take(finalK))
             yield return new SearchHit(baseHit.Memory, score, vr, lr);
     }
 

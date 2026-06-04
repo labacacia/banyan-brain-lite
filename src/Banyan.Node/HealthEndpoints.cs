@@ -11,7 +11,15 @@ public static class HealthEndpoints
             .AllowAnonymous()
             .WithTags("health");
 
+        app.MapGet("/healthz", () => Results.Ok(new { status = "alive" }))
+            .AllowAnonymous()
+            .WithTags("health");
+
         app.MapGet("/health", CheckAsync)
+            .AllowAnonymous()
+            .WithTags("health");
+
+        app.MapGet("/readyz", CheckAsync)
             .AllowAnonymous()
             .WithTags("health");
     }

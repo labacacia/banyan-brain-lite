@@ -7,6 +7,7 @@ internal static class NipCaMigrations
     private static readonly (int Version, string Sql)[] s_migrations =
     [
         (1, Migration001_Initial),
+        (2, Migration002_Lineage),
     ];
 
     public static async Task ApplyAsync(SqliteConnection conn, CancellationToken ct = default)
@@ -77,5 +78,12 @@ internal static class NipCaMigrations
             next INTEGER NOT NULL DEFAULT 1
         );
         INSERT INTO nip_serial (id, next) VALUES (1, 1)
+        """;
+
+    private const string Migration002_Lineage = """
+        ALTER TABLE nip_certs ADD COLUMN nid_role TEXT;
+        ALTER TABLE nip_certs ADD COLUMN parent_nid TEXT;
+        ALTER TABLE nip_certs ADD COLUMN lineage_json TEXT;
+        CREATE INDEX ix_nip_certs_parent_nid ON nip_certs(parent_nid)
         """;
 }

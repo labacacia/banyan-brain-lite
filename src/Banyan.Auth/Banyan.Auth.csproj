@@ -11,8 +11,8 @@
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="LabAcacia.NPS.Core" Version="1.0.0-alpha.5" />
-    <PackageReference Include="LabAcacia.NPS.NIP" Version="1.0.0-alpha.5" />
+    <PackageReference Include="LabAcacia.NPS.Core" Version="1.0.0-alpha.6" />
+    <PackageReference Include="LabAcacia.NPS.NIP" Version="1.0.0-alpha.6" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.*" />
   </ItemGroup>
   <!-- NPS.* on nuget.org (public). SQLite for the embedded NipCaStore. -->

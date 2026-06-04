@@ -35,7 +35,7 @@ public static class MemoryNodeApp
         Directory.CreateDirectory(Path.GetDirectoryName(memoryDb)!);
         IEmbedder embedder = EmbedderFactory.Create();
         var memoryStore = await SqliteMemoryStore.OpenAsync(
-            $"Data Source={memoryDb}", embedder, opts.SqliteVecLibPath, ct);
+            $"Data Source={memoryDb}", embedder, opts.SqliteVecLibPath, ct: ct);
         builder.Services.AddSingleton(embedder);
         builder.Services.AddSingleton(memoryStore);
 
@@ -98,7 +98,8 @@ public static class MemoryNodeApp
             app.UseNidAuthentication();
 
         // Liveness + manifest are publicly readable.
-        app.MapGet("/api/health", () => Results.Ok(new { ok = true, role = "memory-node", version = "P3" }));
+        var version = typeof(MemoryNodeApp).Assembly.GetName().Version?.ToString() ?? "dev";
+        app.MapGet("/api/health", () => Results.Ok(new { ok = true, role = "memory-node", version }));
         HealthEndpoints.Map(app);
         app.MapGet("/.nwm",      ([Microsoft.AspNetCore.Mvc.FromServices] BanyanNodeOptions o) =>
             Results.Json(BuildManifest(o, ca)));
