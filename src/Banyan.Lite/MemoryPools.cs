@@ -5,7 +5,25 @@ namespace Banyan.Lite;
 
 public static class LiteMemoryPool
 {
-    public static string Namespace(string poolId) => $"pool:{poolId}";
+    public const string NamespacePrefix = "pool:";
+
+    public static string Namespace(string poolId) => $"{NamespacePrefix}{poolId}";
+
+    /// <summary>True when a namespace addresses a memory pool (reserved <c>pool:</c> prefix).</summary>
+    public static bool IsPoolNamespace(string? @namespace)
+        => !string.IsNullOrEmpty(@namespace) && @namespace.StartsWith(NamespacePrefix, StringComparison.Ordinal);
+
+    /// <summary>Extracts the pool id from a pool namespace; false for non-pool namespaces.</summary>
+    public static bool TryGetPoolId(string? @namespace, out string poolId)
+    {
+        if (IsPoolNamespace(@namespace))
+        {
+            poolId = @namespace!.Substring(NamespacePrefix.Length);
+            return poolId.Length > 0;
+        }
+        poolId = string.Empty;
+        return false;
+    }
 }
 
 public sealed class SqliteMemoryPoolRepository : IMemoryPoolRepository
@@ -114,6 +132,15 @@ public sealed class SqliteMemoryPoolRepository : IMemoryPoolRepository
         cmd.Parameters.AddWithValue("@pool", poolId);
         cmd.Parameters.AddWithValue("@member", memberId);
         await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<bool> IsMemberAsync(string poolId, string memberId, CancellationToken ct = default)
+    {
+        await using var cmd = _conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM pool_memberships WHERE pool_id = @pool AND member_id = @member LIMIT 1";
+        cmd.Parameters.AddWithValue("@pool", poolId);
+        cmd.Parameters.AddWithValue("@member", memberId);
+        return await cmd.ExecuteScalarAsync(ct) is not null;
     }
 
     public async Task BindAgentAsync(

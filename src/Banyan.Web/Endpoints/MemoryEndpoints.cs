@@ -1,6 +1,8 @@
 using System.Text.Json;
 using Banyan.Core;
+using Banyan.Core.Isolation;
 using Banyan.Lite;
+using Banyan.Node.Auth;
 
 namespace Banyan.Web.Endpoints;
 
@@ -24,8 +26,13 @@ public static class MemoryEndpoints
     {
         var g = app.MapGroup("/api/memory").WithTags("memory");
 
-        g.MapPost("/", async (HttpContext ctx, WriteBody body, SqliteMemoryStore store) =>
+        g.MapPost("/", async (HttpContext ctx, WriteBody body, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools) =>
         {
+            if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryWrite) is { } denied)
+                return denied;
+            var ns = body.Namespace ?? "default";
+            if (!await MayAccessNamespaceAsync(ctx, pools, ns, ctx.RequestAborted))
+                return PoolForbidden(ns);
             JsonDocument? meta = body.Metadata.HasValue
                 ? JsonDocument.Parse(body.Metadata.Value.GetRawText())
                 : null;
@@ -34,7 +41,7 @@ public static class MemoryEndpoints
             var verifiedNid = ctx.Items[Banyan.Auth.NidAuthenticationOptions.ContextKeyNid] as string;
             var req = new WriteRequest(
                 Content:   body.Content,
-                Namespace: body.Namespace ?? "default",
+                Namespace: ns,
                 AgentNid:  verifiedNid ?? body.AgentNid,
                 Metadata:  meta);
             var id = await store.WriteAsync(req);
@@ -42,9 +49,14 @@ public static class MemoryEndpoints
         });
 
         g.MapGet("/search", async (
-            string q, SqliteMemoryStore store,
+            HttpContext ctx, string q, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools,
             string? mode = null, string? @namespace = null, int k = 10) =>
         {
+            if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryRead) is { } denied)
+                return denied;
+            // Explicitly searching a pool namespace requires membership; non-pool searches are unaffected.
+            if (@namespace is not null && !await MayAccessNamespaceAsync(ctx, pools, @namespace, ctx.RequestAborted))
+                return PoolForbidden(@namespace);
             var resolvedMode = ParseMode(mode);
             var query = new SearchQuery(Text: q, Namespace: @namespace, K: k, Mode: resolvedMode);
             var hits  = new List<SearchHitDto>();
@@ -58,11 +70,15 @@ public static class MemoryEndpoints
             return Results.Ok(new { mode = resolvedMode.ToString().ToLowerInvariant(), hits });
         });
 
-        g.MapGet("/{id}", async (string id, SqliteMemoryStore store) =>
+        g.MapGet("/{id}", async (HttpContext ctx, string id, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools) =>
         {
+            if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryRead) is { } denied)
+                return denied;
             if (!Guid.TryParse(id, out var guid)) return Results.BadRequest(new { error = "invalid id" });
             var m = await store.GetAsync(new MemoryId(guid));
             if (m is null) return Results.NotFound();
+            // Don't leak pool memories to non-members: treat as not found.
+            if (!await MayAccessNamespaceAsync(ctx, pools, m.Namespace, ctx.RequestAborted)) return Results.NotFound();
 
             JsonElement? meta = m.Metadata is null ? null : JsonDocument.Parse(m.Metadata.RootElement.GetRawText()).RootElement;
             return Results.Ok(new MemoryDto(
@@ -70,9 +86,14 @@ public static class MemoryEndpoints
                 meta, m.AgentNid, m.CreatedAt, m.UpdatedAt));
         });
 
-        g.MapPut("/{id}", async (HttpContext ctx, string id, UpdateBody body, SqliteMemoryStore store) =>
+        g.MapPut("/{id}", async (HttpContext ctx, string id, UpdateBody body, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools) =>
         {
+            if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryWrite) is { } denied)
+                return denied;
             if (!Guid.TryParse(id, out var guid)) return Results.BadRequest(new { error = "invalid id" });
+            var existing = await store.GetAsync(new MemoryId(guid));
+            if (existing is not null && !await MayAccessNamespaceAsync(ctx, pools, existing.Namespace, ctx.RequestAborted))
+                return PoolForbidden(existing.Namespace);
             JsonDocument? meta = body.Metadata.HasValue
                 ? JsonDocument.Parse(body.Metadata.Value.GetRawText())
                 : null;
@@ -86,9 +107,14 @@ public static class MemoryEndpoints
             catch (InvalidOperationException ex) { return Results.NotFound(new { error = ex.Message }); }
         });
 
-        g.MapDelete("/{id}", async (string id, SqliteMemoryStore store, string? reason = null) =>
+        g.MapDelete("/{id}", async (HttpContext ctx, string id, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools, string? reason = null) =>
         {
+            if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryWrite) is { } denied)
+                return denied;
             if (!Guid.TryParse(id, out var guid)) return Results.BadRequest(new { error = "invalid id" });
+            var existing = await store.GetAsync(new MemoryId(guid));
+            if (existing is not null && !await MayAccessNamespaceAsync(ctx, pools, existing.Namespace, ctx.RequestAborted))
+                return PoolForbidden(existing.Namespace);
             try
             {
                 var ev = await store.ForgetAsync(new MemoryId(guid), reason);
@@ -97,9 +123,14 @@ public static class MemoryEndpoints
             catch (InvalidOperationException ex) { return Results.NotFound(new { error = ex.Message }); }
         });
 
-        g.MapGet("/{id}/trace", async (string id, SqliteMemoryStore store) =>
+        g.MapGet("/{id}/trace", async (HttpContext ctx, string id, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools) =>
         {
+            if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryRead) is { } denied)
+                return denied;
             if (!Guid.TryParse(id, out var guid)) return Results.BadRequest(new { error = "invalid id" });
+            var m = await store.GetAsync(new MemoryId(guid));
+            if (m is not null && !await MayAccessNamespaceAsync(ctx, pools, m.Namespace, ctx.RequestAborted))
+                return Results.NotFound();
             var events = new List<EventDto>();
             await foreach (var e in store.TraceAsync(new MemoryId(guid)))
             {
@@ -112,6 +143,22 @@ public static class MemoryEndpoints
             return Results.Ok(events);
         });
     }
+
+    // ISO-5: pool namespaces (pool:*) are member-only. Non-pool namespaces are not gated here.
+    // Returns true when access is allowed (non-pool namespace, or an authenticated member).
+    private static async Task<bool> MayAccessNamespaceAsync(
+        HttpContext ctx, IMemoryPoolRepository pools, string? @namespace, CancellationToken ct)
+    {
+        if (!LiteMemoryPool.TryGetPoolId(@namespace, out var poolId))
+            return true;
+        var nid = ctx.Items[Banyan.Auth.NidAuthenticationOptions.ContextKeyNid] as string;
+        return !string.IsNullOrEmpty(nid) && await pools.IsMemberAsync(poolId, nid, ct);
+    }
+
+    private static IResult PoolForbidden(string? @namespace)
+        => Results.Json(
+            new { error_code = "POOL-FORBIDDEN", message = $"not a member of pool namespace '{@namespace}'" },
+            statusCode: StatusCodes.Status403Forbidden);
 
     private static SearchMode ParseMode(string? mode) => (mode ?? "hybrid").ToLowerInvariant() switch
     {

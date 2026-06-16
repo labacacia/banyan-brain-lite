@@ -9,5 +9,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Banyan.Auth/Banyan.Auth.csproj" />
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -41,6 +41,33 @@ public sealed class MemoryPoolTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task IsMemberAsync_TracksMembership()
+    {
+        var pool = await _repo.CreateAsync("project", "workspace", "alice");
+
+        Assert.False(await _repo.IsMemberAsync(pool.Id, "agent-a"));
+
+        await _repo.AddMemberAsync(pool.Id, "agent-a", "agent");
+        Assert.True(await _repo.IsMemberAsync(pool.Id, "agent-a"));
+        Assert.False(await _repo.IsMemberAsync(pool.Id, "agent-b"));
+
+        await _repo.RemoveMemberAsync(pool.Id, "agent-a");
+        Assert.False(await _repo.IsMemberAsync(pool.Id, "agent-a"));
+    }
+
+    [Theory]
+    [InlineData("pool:abc", true, "abc")]
+    [InlineData("pool:", false, "")]
+    [InlineData("default", false, "")]
+    [InlineData(null, false, "")]
+    public void TryGetPoolId_RecognisesPoolNamespaces(string? ns, bool expected, string expectedId)
+    {
+        Assert.Equal(expected, LiteMemoryPool.TryGetPoolId(ns, out var poolId));
+        Assert.Equal(expectedId, poolId);
+        Assert.Equal(expected, LiteMemoryPool.IsPoolNamespace(ns) && poolId.Length > 0);
+    }
+
+    [Fact]
     public async Task PoolAwareStore_SearchesBoundPools()
     {
         var pool = await _repo.CreateAsync("workspace", "local_workspace", "alice");

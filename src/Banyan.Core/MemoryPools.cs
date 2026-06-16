@@ -46,6 +46,8 @@ public interface IMemoryPoolRepository : IAsyncDisposable
     Task<MemoryPool?> GetAsync(string poolIdOrName, CancellationToken ct = default);
     Task AddMemberAsync(string poolId, string memberId, string memberType, CancellationToken ct = default);
     Task RemoveMemberAsync(string poolId, string memberId, CancellationToken ct = default);
+    /// <summary>True when <paramref name="memberId"/> is a member of the pool. Used for pool-access enforcement (ISO-5).</summary>
+    Task<bool> IsMemberAsync(string poolId, string memberId, CancellationToken ct = default);
     Task BindAgentAsync(string agentId, string poolId, int priority = 100, CancellationToken ct = default);
     Task<IReadOnlyList<MemoryPoolBinding>> ListBindingsAsync(string agentId, CancellationToken ct = default);
 }

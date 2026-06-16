@@ -70,6 +70,11 @@ public static class WebApp
         builder.Services.AddSingleton(packRegistry);
         builder.Services.AddSingleton<IMemoryStore>(new KnowledgePackRecallStore(memoryStore, packRegistry));
 
+        // Unified isolation enforcement (ISO-4): capability checks for authenticated agents
+        // on the NID-gated /api/memory surface. Anonymous access stays governed by NidAuthMode.
+        builder.Services.AddSingleton<Banyan.Core.Isolation.IIsolationEnforcer,
+            Banyan.Core.Isolation.DefaultIsolationEnforcer>();
+
         LocalAgentIdentity localAgent = LocalAgentIdentity.Empty;
         if (opts.CaServerType == CaServerMode.External)
         {
