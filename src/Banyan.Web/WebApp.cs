@@ -63,6 +63,8 @@ public static class WebApp
         builder.Services.AddSingleton(memoryStore);
         builder.Services.AddSingleton<IMemoryPoolRepository>(
             await SqliteMemoryPoolRepository.OpenAsync($"Data Source={memoryDb}", ct));
+        // Tamper-evident audit log for write/update/forget (OBS-4); shares memory.db.
+        builder.Services.AddSingleton(await SqliteAuditLog.OpenAsync($"Data Source={memoryDb}", ct));
         if (memoryStore.VecEnabled)
             Console.WriteLine($"[store] sqlite-vec ANN index ready: embeddings_vec");
 

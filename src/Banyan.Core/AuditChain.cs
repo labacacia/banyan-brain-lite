@@ -4,7 +4,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Banyan.Observability;
+namespace Banyan.Core;
 
 /// <summary>One link in a tamper-evident audit chain (OBS-2).</summary>
 public sealed record AuditEntry(

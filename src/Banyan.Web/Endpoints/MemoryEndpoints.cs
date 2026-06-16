@@ -27,7 +27,7 @@ public static class MemoryEndpoints
     {
         var g = app.MapGroup("/api/memory").WithTags("memory");
 
-        g.MapPost("/", async (HttpContext ctx, WriteBody body, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools) =>
+        g.MapPost("/", async (HttpContext ctx, WriteBody body, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools, SqliteAuditLog audit) =>
         {
             if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryWrite) is { } denied)
                 return denied;
@@ -46,6 +46,7 @@ public static class MemoryEndpoints
                 AgentNid:  verifiedNid ?? body.AgentNid,
                 Metadata:  meta);
             var id = await store.WriteAsync(req);
+            await audit.AppendAsync(AuditActor(ctx), "memory.write", id.ToString(), "ok", metadata: $"ns={ns}", ct: ctx.RequestAborted);
             return Results.Ok(new WriteResponse(id.ToString()));
         });
 
@@ -89,7 +90,7 @@ public static class MemoryEndpoints
                 meta, m.AgentNid, m.CreatedAt, m.UpdatedAt));
         });
 
-        g.MapPut("/{id}", async (HttpContext ctx, string id, UpdateBody body, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools) =>
+        g.MapPut("/{id}", async (HttpContext ctx, string id, UpdateBody body, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools, SqliteAuditLog audit) =>
         {
             if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryWrite) is { } denied)
                 return denied;
@@ -105,12 +106,13 @@ public static class MemoryEndpoints
             {
                 var ev = await store.UpdateAsync(new MemoryId(guid),
                     new UpdateRequest(body.Content, meta, verifiedNid ?? body.AgentNid));
+                await audit.AppendAsync(AuditActor(ctx), "memory.update", id, "ok", ct: ctx.RequestAborted);
                 return Results.Ok(new EventResponse(ev.ToString()));
             }
             catch (InvalidOperationException ex) { return Results.NotFound(new { error = ex.Message }); }
         });
 
-        g.MapDelete("/{id}", async (HttpContext ctx, string id, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools, string? reason = null) =>
+        g.MapDelete("/{id}", async (HttpContext ctx, string id, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools, SqliteAuditLog audit, string? reason = null) =>
         {
             if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryWrite) is { } denied)
                 return denied;
@@ -121,6 +123,7 @@ public static class MemoryEndpoints
             try
             {
                 var ev = await store.ForgetAsync(new MemoryId(guid), reason);
+                await audit.AppendAsync(AuditActor(ctx), "memory.forget", id, "ok", ct: ctx.RequestAborted);
                 return Results.Ok(new EventResponse(ev.ToString()));
             }
             catch (InvalidOperationException ex) { return Results.NotFound(new { error = ex.Message }); }
@@ -146,6 +149,10 @@ public static class MemoryEndpoints
             return Results.Ok(events);
         });
     }
+
+    // OBS-4: audit subject is the verified NID (set by NID auth), else anonymous.
+    private static string AuditActor(HttpContext ctx)
+        => ctx.Items[Banyan.Auth.NidAuthenticationOptions.ContextKeyNid] as string ?? "anonymous";
 
     // ISO-5: pool namespaces (pool:*) are member-only. Non-pool namespaces are not gated here.
     // Returns true when access is allowed (non-pool namespace, or an authenticated member).
