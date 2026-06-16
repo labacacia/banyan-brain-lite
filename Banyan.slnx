@@ -8,6 +8,7 @@
     <Project Path="src/Banyan.Lite/Banyan.Lite.csproj" />
     <Project Path="src/Banyan.Mcp/Banyan.Mcp.csproj" />
     <Project Path="src/Banyan.Node/Banyan.Node.csproj" />
+    <Project Path="src/Banyan.Observability/Banyan.Observability.csproj" />
     <Project Path="src/Banyan.Web/Banyan.Web.csproj" />
   </Folder>
   <Folder Name="/tests/">
@@ -16,5 +17,6 @@
     <Project Path="tests/Banyan.Identity.Tests/Banyan.Identity.Tests.csproj" />
     <Project Path="tests/Banyan.Node.Tests/Banyan.Node.Tests.csproj" />
     <Project Path="tests/Banyan.Lite.Tests/Banyan.Lite.Tests.csproj" />
+    <Project Path="tests/Banyan.Observability.Tests/Banyan.Observability.Tests.csproj" />
   </Folder>
 </Solution>

@@ -27,9 +27,11 @@ public static class HealthEndpoints
     private static async Task<IResult> CheckAsync(
         SqliteMemoryStore store,
         IEmbedder embedder,
+        WebOptions opts,
         CancellationToken ct)
     {
-        var report = await LiteHealthProbe.CheckAsync(store, embedder, ct);
+        var report = await LiteHealthProbe.CheckAsync(
+            store, embedder, WebOptions.ExpandHome(opts.MemoryDbPath), ct);
         return report.Status == "ok"
             ? Results.Ok(report)
             : Results.Json(report, statusCode: StatusCodes.Status503ServiceUnavailable);

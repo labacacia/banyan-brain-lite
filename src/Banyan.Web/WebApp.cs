@@ -8,6 +8,8 @@ using Banyan.Identity.Extensions;
 using Banyan.Lite;
 using Banyan.Mcp;
 using Banyan.Node.Auth;
+using Banyan.Observability;
+using Microsoft.Data.Sqlite;
 using Banyan.Web.Components;
 using Banyan.Web.Endpoints;
 using Banyan.Web.Middleware;
@@ -74,6 +76,15 @@ public static class WebApp
         // on the NID-gated /api/memory surface. Anonymous access stays governed by NidAuthMode.
         builder.Services.AddSingleton<Banyan.Core.Isolation.IIsolationEnforcer,
             Banyan.Core.Isolation.DefaultIsolationEnforcer>();
+
+        // Observability (OBS-3): OTel metrics/traces/logs (OTLP export only when
+        // OTEL_EXPORTER_OTLP_ENDPOINT is set) + the Banyan.Lite meter. Cardinality
+        // gauges poll their own short-lived read connection to avoid contending with
+        // request threads on the primary SQLite connection (telemetry.md P4).
+        builder.AddBanyanObservability("lite");
+        builder.Services.AddSingleton(_ => new BanyanLiteMetrics(
+            memoriesTotal: () => CountRows(memoryDb, "memories_current"),
+            poolMembers:   () => CountRows(memoryDb, "pool_memberships")));
 
         LocalAgentIdentity localAgent = LocalAgentIdentity.Empty;
         if (opts.CaServerType == CaServerMode.External)
@@ -317,5 +328,24 @@ public static class WebApp
         Console.WriteLine("  identity  : enabled (first-run admin setup enforced)");
 
         await app.RunAsync(ct);
+    }
+
+    // OBS-3: count rows for cardinality gauges via a short-lived read-only connection,
+    // so the OTel collection thread never shares the primary store connection. Best-effort:
+    // telemetry must never crash the host, so failures report 0.
+    private static long CountRows(string dbPath, string table)
+    {
+        try
+        {
+            using var conn = new SqliteConnection($"Data Source={dbPath};Mode=ReadOnly;Cache=Shared");
+            conn.Open();
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = $"SELECT COUNT(*) FROM {table}";
+            return Convert.ToInt64(cmd.ExecuteScalar() ?? 0L);
+        }
+        catch
+        {
+            return 0L;
+        }
     }
 }

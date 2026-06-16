@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Observability</AssemblyName>
+    <RootNamespace>Banyan.Observability</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Observability</PackageId>
+    <Description>Shared Banyan observability layer — OpenTelemetry metrics/traces/logs wiring (AddBanyanObservability), unified meter/activity-source naming, and structured-logging helpers. Consumed by Lite and Pro; Ent uses its own Aspire ServiceDefaults following the same conventions.</Description>
+  </PropertyGroup>
+
+  <!-- AspNetCore instrumentation + IHostApplicationBuilder. OTel versions match Ent ServiceDefaults. -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+  </ItemGroup>
+</Project>

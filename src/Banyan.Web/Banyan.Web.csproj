@@ -16,6 +16,7 @@
     <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
     <ProjectReference Include="../Banyan.Identity/Banyan.Identity.csproj" />
     <ProjectReference Include="../Banyan.Node.Auth/Banyan.Node.Auth.csproj" />
+    <ProjectReference Include="../Banyan.Observability/Banyan.Observability.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AntDesign" Version="0.20.*" />

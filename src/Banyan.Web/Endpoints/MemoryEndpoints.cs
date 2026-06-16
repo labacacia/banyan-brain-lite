@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using Banyan.Core;
 using Banyan.Core.Isolation;
@@ -50,7 +51,7 @@ public static class MemoryEndpoints
 
         g.MapGet("/search", async (
             HttpContext ctx, string q, SqliteMemoryStore store, IIsolationEnforcer enforcer, IMemoryPoolRepository pools,
-            string? mode = null, string? @namespace = null, int k = 10) =>
+            BanyanLiteMetrics metrics, string? mode = null, string? @namespace = null, int k = 10) =>
         {
             if (LiteIsolation.Authorize(ctx, enforcer, IsolationCapabilities.MemoryRead) is { } denied)
                 return denied;
@@ -60,6 +61,7 @@ public static class MemoryEndpoints
             var resolvedMode = ParseMode(mode);
             var query = new SearchQuery(Text: q, Namespace: @namespace, K: k, Mode: resolvedMode);
             var hits  = new List<SearchHitDto>();
+            var sw = Stopwatch.StartNew();
             await foreach (var h in store.SearchAsync(query))
             {
                 hits.Add(new SearchHitDto(
@@ -67,6 +69,7 @@ public static class MemoryEndpoints
                     h.Score, h.LexicalRank, h.VectorRank,
                     h.Memory.CreatedAt, h.Memory.UpdatedAt));
             }
+            metrics.RecordQuery(sw.Elapsed.TotalMilliseconds);
             return Results.Ok(new { mode = resolvedMode.ToString().ToLowerInvariant(), hits });
         });
 
