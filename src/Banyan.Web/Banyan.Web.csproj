@@ -27,4 +27,7 @@
          next to Banyan.Web.dll wherever it ships (CLI's bin/, publish dir, …). -->
     <Content Update="wwwroot/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
-</Project>
+<ItemGroup>
+    <!-- Pin transitive MessagePack above the vulnerable 3.0.x (GHSA-hv8m-jj95-wg3x / NU1903, #108). -->
+    <PackageReference Include="MessagePack" Version="3.1.7" />
+  </ItemGroup></Project>
