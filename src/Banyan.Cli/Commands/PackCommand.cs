@@ -1,6 +1,7 @@
 using System.Text.Json;
 using Banyan.Auth;
 using Banyan.Core.KnowledgePacks;
+using Banyan.Embedders;
 
 namespace Banyan.Cli.Commands;
 
@@ -79,14 +80,45 @@ internal static class PackCommand
 
             var outPath    = CommandContext.ExpandHome(output);
             var passphrase = CommandContext.GetOption(args, "--passphrase");
+            var signKey    = CommandContext.GetOption(args, "--sign-key");
+            // v2 ships in-pack embeddings by default (offline ONNX); --no-embed for v1.
+            // Encrypted packs stay v1 here (encrypted payload + in-pack vectors is out of scope).
+            var embed      = !CommandContext.HasFlag(args, "--no-embed") && string.IsNullOrEmpty(passphrase);
             Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
-            await using var stream = File.Create(outPath);
-            if (!string.IsNullOrEmpty(passphrase))
-                await KnowledgePackArchive.WriteEncryptedAsync(stream, result.Manifest, result.Entries, passphrase);
-            else
-                await KnowledgePackArchive.WriteAsync(stream, result.Manifest, result.Entries);
+
+            var manifest = result.Manifest;
+            var entries  = result.Entries.ToList();
+            if (embed)
+            {
+                var embedder = EmbedderFactory.Create();
+                var vectors  = new Dictionary<string, float[]>(StringComparer.Ordinal);
+                foreach (var m in result.Memories)
+                    vectors[m.RecordId] = await embedder.EmbedAsync(m.Content);
+                entries.Add(new KnowledgePackArchiveEntry(PackEmbeddings.Path, PackEmbeddings.Serialize(vectors)));
+                manifest = manifest with { FormatVersion = 2, EmbedderProfile = embedder.ModelId };
+            }
+
+            await using (var stream = File.Create(outPath))
+            {
+                if (!string.IsNullOrEmpty(passphrase))
+                    await KnowledgePackArchive.WriteEncryptedAsync(stream, manifest, result.Entries, passphrase);
+                else
+                    await KnowledgePackArchive.WriteAsync(stream, manifest, entries);
+            }
+
+            if (!string.IsNullOrEmpty(signKey) && string.IsNullOrEmpty(passphrase))
+            {
+                await using var s = new FileStream(outPath, FileMode.Open, FileAccess.ReadWrite);
+                using var signer = Ed25519PackSigner.FromSeed(
+                    Convert.FromBase64String(signKey), CommandContext.GetOption(args, "--key-id"));
+                await PackSigning.SignAsync(s, signer);
+            }
 
             PrintBuildSummary(result, outPath);
+            if (embed)
+                Console.WriteLine($"  embeddings:   {result.Memories.Count} vectors ({manifest.EmbedderProfile})");
+            if (!string.IsNullOrEmpty(signKey) && string.IsNullOrEmpty(passphrase))
+                Console.WriteLine("  signature:    ed25519");
             return 0;
         }
         catch (Exception ex) when (ex is KnowledgePackValidationException
