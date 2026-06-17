@@ -38,6 +38,10 @@ public sealed class WebOptions
     /// <summary>Path to the pack mount registry JSON file.</summary>
     public string PackRegistryPath { get; set; } = "~/.banyan/knowledge-packs/mounts.json";
 
+    /// <summary>KB-3: when true, packs may only be mounted if signed by a publisher NID
+    /// the CA trust chain vouches for (requires a CA). Default false (lenient).</summary>
+    public bool RequirePackSignature { get; set; }
+
     /// <summary>Path to the sqlite-vec loadable extension. Null = auto-discover (env var / default cache).</summary>
     public string? SqliteVecLibPath { get; set; }
 

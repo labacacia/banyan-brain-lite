@@ -89,6 +89,16 @@ public static class PackSigning
         await JsonSerializer.SerializeAsync(es, sig, JsonOptions, ct);
     }
 
+    /// <summary>Reads the detached <c>manifest.sig</c> from a pack, or null when unsigned.</summary>
+    public static async Task<PackSignature?> ReadSignatureAsync(Stream packStream, CancellationToken ct = default)
+    {
+        using var archive = new ZipArchive(packStream, ZipArchiveMode.Read, leaveOpen: true);
+        var sigEntry = archive.GetEntry(SignaturePath);
+        if (sigEntry is null) return null;
+        await using var s = sigEntry.Open();
+        return await JsonSerializer.DeserializeAsync<PackSignature>(s, JsonOptions, ct);
+    }
+
     /// <summary>Verifies a pack's signature against its recomputed digest.</summary>
     public static async Task<PackVerification> VerifyAsync(
         Stream packStream, IPackSigner signer, CancellationToken ct = default)

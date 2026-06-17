@@ -1,6 +1,8 @@
+using Banyan.Auth;
 using Banyan.Core.KnowledgePacks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Banyan.Web.Endpoints;
 
@@ -99,8 +101,25 @@ public static class KnowledgePackEndpoints
         // Mount a pack from the store into a namespace.
         g.MapPost("/mount", async (
             MountRequest body,
-            FileKnowledgePackMountRegistry registry) =>
+            FileKnowledgePackMountRegistry registry,
+            WebOptions opts,
+            HttpContext http) =>
         {
+            // KB-3 mount trust: when strict signing is required and a CA is present, the
+            // pack must be signed by a publisher NID the CA trust chain vouches for.
+            if (opts.RequirePackSignature
+                && http.RequestServices.GetService<EmbeddedNipCa>() is { } ca
+                && File.Exists(body.PackPath))
+            {
+                await using var packStream = File.OpenRead(body.PackPath);
+                var trust = await PackTrustVerifier.VerifyAsync(
+                    packStream, new CaPublisherKeyResolver(ca), strict: true, http.RequestAborted);
+                if (!trust.Ok)
+                    return Results.Json(
+                        new { error = $"pack not trusted: {trust.Outcome}", reason = trust.Reason, publisher = trust.PublisherNid },
+                        statusCode: StatusCodes.Status403Forbidden);
+            }
+
             try
             {
                 var result = await registry.MountAsync(
