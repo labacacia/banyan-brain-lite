@@ -10,6 +10,16 @@ public sealed record KnowledgePackManifest
     [JsonPropertyName("schema_version")]
     public string SchemaVersion { get; init; } = CurrentSchemaVersion;
 
+    /// <summary>Pack format generation (KB-2). 1 = legacy (no in-pack embeddings/signature),
+    /// 2 = signed + embeddings + provenance. Absent in v1 packs → treated as 1.</summary>
+    [JsonPropertyName("format_version")]
+    public int FormatVersion { get; init; } = 1;
+
+    /// <summary>Embedder profile the in-pack embeddings were produced with (KB-2),
+    /// e.g. <c>bge-small-zh-v1.5</c>. Used for mount-time compatibility checks.</summary>
+    [JsonPropertyName("embedder_profile")]
+    public string? EmbedderProfile { get; init; }
+
     [JsonPropertyName("pack_id")]
     public required string PackId { get; init; }
 
