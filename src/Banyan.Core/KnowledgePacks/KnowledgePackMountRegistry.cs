@@ -33,6 +33,10 @@ public sealed record KnowledgePackMountRecord
     [JsonPropertyName("mounted_by")]
     public string? MountedBy { get; init; }
 
+    /// <summary>KB-5: pinned versions are excluded from auto-upgrade (advisory; explicit
+    /// activation can still override). Pin/upgrade/rollback are operator actions.</summary>
+    public bool Pinned { get; init; }
+
     [JsonPropertyName("enabled")]
     public bool Enabled { get; init; } = true;
 }
@@ -170,6 +174,66 @@ public sealed class FileKnowledgePackMountRegistry
         }
 
         return removed > 0;
+    }
+
+    /// <summary>All mounted versions of a pack in a namespace (KB-5 version management).</summary>
+    public async Task<IReadOnlyList<KnowledgePackMountRecord>> ListVersionsAsync(
+        string @namespace, string packId, CancellationToken cancellationToken = default)
+    {
+        var records = await LoadAsync(cancellationToken).ConfigureAwait(false);
+        return records
+            .Where(r => string.Equals(r.Namespace, @namespace, StringComparison.Ordinal)
+                     && string.Equals(r.PackId, packId, StringComparison.Ordinal))
+            .OrderBy(static r => r.PackVersion, StringComparer.Ordinal)
+            .ToList();
+    }
+
+    /// <summary>Makes one version the active (enabled) one for a pack in a namespace and
+    /// disables its siblings — the primitive behind upgrade and rollback (KB-5).</summary>
+    public async Task<bool> SetActiveVersionAsync(
+        string @namespace, string packId, string version, CancellationToken cancellationToken = default)
+    {
+        var records = await LoadAsync(cancellationToken).ConfigureAwait(false);
+        var siblings = records.Where(r =>
+            string.Equals(r.Namespace, @namespace, StringComparison.Ordinal)
+            && string.Equals(r.PackId, packId, StringComparison.Ordinal)).ToList();
+        if (!siblings.Any(r => string.Equals(r.PackVersion, version, StringComparison.Ordinal)))
+            return false; // that version is not mounted
+
+        var changed = false;
+        for (var i = 0; i < records.Count; i++)
+        {
+            var r = records[i];
+            if (!string.Equals(r.Namespace, @namespace, StringComparison.Ordinal)
+                || !string.Equals(r.PackId, packId, StringComparison.Ordinal))
+                continue;
+            var enable = string.Equals(r.PackVersion, version, StringComparison.Ordinal);
+            if (r.Enabled != enable)
+            {
+                records[i] = r with { Enabled = enable };
+                changed = true;
+            }
+        }
+        if (changed) await SaveAsync(records, cancellationToken).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Pins/unpins a specific mounted version (KB-5; advisory for auto-upgrade).</summary>
+    public async Task<bool> SetPinnedAsync(
+        string @namespace, string packId, string version, bool pinned, CancellationToken cancellationToken = default)
+    {
+        var records = await LoadAsync(cancellationToken).ConfigureAwait(false);
+        var idx = records.FindIndex(r =>
+            string.Equals(r.Namespace, @namespace, StringComparison.Ordinal)
+            && string.Equals(r.PackId, packId, StringComparison.Ordinal)
+            && string.Equals(r.PackVersion, version, StringComparison.Ordinal));
+        if (idx < 0) return false;
+        if (records[idx].Pinned != pinned)
+        {
+            records[idx] = records[idx] with { Pinned = pinned };
+            await SaveAsync(records, cancellationToken).ConfigureAwait(false);
+        }
+        return true;
     }
 
     private async Task<List<KnowledgePackMountRecord>> LoadAsync(CancellationToken cancellationToken)
