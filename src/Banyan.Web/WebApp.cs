@@ -72,7 +72,7 @@ public static class WebApp
         Directory.CreateDirectory(WebOptions.ExpandHome(opts.PackStorePath));
         var packRegistry = new FileKnowledgePackMountRegistry(WebOptions.ExpandHome(opts.PackRegistryPath));
         builder.Services.AddSingleton(packRegistry);
-        builder.Services.AddSingleton<IMemoryStore>(new KnowledgePackRecallStore(memoryStore, packRegistry));
+        builder.Services.AddSingleton<IMemoryStore>(new KnowledgePackRecallStore(memoryStore, packRegistry, embedder));
 
         // Unified isolation enforcement (ISO-4): capability checks for authenticated agents
         // on the NID-gated /api/memory surface. Anonymous access stays governed by NidAuthMode.

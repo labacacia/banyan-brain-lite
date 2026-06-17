@@ -8,7 +8,8 @@ namespace Banyan.Core.KnowledgePacks;
 
 public sealed class KnowledgePackRecallStore(
     IMemoryStore inner,
-    FileKnowledgePackMountRegistry mountRegistry) : IMemoryStore
+    FileKnowledgePackMountRegistry mountRegistry,
+    IEmbedder? embedder = null) : IMemoryStore
 {
     private const double PackScoreBase = 0.5;
 
@@ -63,6 +64,12 @@ public sealed class KnowledgePackRecallStore(
             yield break;
         }
 
+        // KB-3/KB-4: when an embedder is wired and the pack ships in-pack vectors,
+        // recall is lexical + semantic (cosine), not substring-only. Embed the query once.
+        var queryVector = embedder is null
+            ? null
+            : await embedder.EmbedQueryAsync(query.Text, ct).ConfigureAwait(false);
+
         var mounted = await mountRegistry.ListAsync(query.Namespace, ct).ConfigureAwait(false);
         foreach (var mount in mounted.Where(static m => m.Enabled))
         {
@@ -81,11 +88,25 @@ public sealed class KnowledgePackRecallStore(
                 continue;
             }
 
+            var vectors = queryVector is null
+                ? null
+                : await ReadEmbeddingsAsync(archive, ct).ConfigureAwait(false);
+
             var rank = 0;
             var sources = await ReadSourceRecordsAsync(archive, ct).ConfigureAwait(false);
             foreach (var record in await ReadMemoryRecordsAsync(archive, ct).ConfigureAwait(false))
             {
-                var score = Score(query.Text, record);
+                var lexical = Score(query.Text, record);
+
+                var semantic = 0.0;
+                if (queryVector is not null && vectors is not null &&
+                    vectors.TryGetValue(record.RecordId, out var recVector))
+                {
+                    var cos = VectorMath.Cosine(queryVector, recVector); // 0 if dims differ
+                    if (cos > 0) semantic = PackScoreBase + cos;
+                }
+
+                var score = Math.Max(lexical, semantic);
                 if (score <= 0)
                 {
                     continue;
@@ -95,10 +116,21 @@ public sealed class KnowledgePackRecallStore(
                 yield return new SearchHit(
                     ToMemory(mount, manifest, record, sources.GetValueOrDefault(record.SourceId)),
                     score,
-                    VectorRank: null,
+                    VectorRank: semantic > lexical ? rank : null,
                     LexicalRank: rank);
             }
         }
+    }
+
+    private static async Task<IReadOnlyDictionary<string, float[]>?> ReadEmbeddingsAsync(
+        ZipArchive archive, CancellationToken ct)
+    {
+        var entry = archive.GetEntry(PackEmbeddings.Path);
+        if (entry is null) return null;
+        await using var s = entry.Open();
+        using var ms = new MemoryStream();
+        await s.CopyToAsync(ms, ct).ConfigureAwait(false);
+        return PackEmbeddings.Deserialize(ms.ToArray());
     }
 
     private static async Task<IReadOnlyList<KnowledgePackMemoryRecord>> ReadMemoryRecordsAsync(
