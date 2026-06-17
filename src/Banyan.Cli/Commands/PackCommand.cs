@@ -1,4 +1,5 @@
 using System.Text.Json;
+using Banyan.Auth;
 using Banyan.Core.KnowledgePacks;
 
 namespace Banyan.Cli.Commands;
@@ -17,6 +18,8 @@ internal static class PackCommand
             "mount" => await MountAsync(rest),
             "list" => await ListAsync(rest),
             "unmount" => await UnmountAsync(rest),
+            "migrate" => await MigrateAsync(rest),
+            "verify" => await VerifyAsync(rest),
             "--help" or "-h" or "help" => Help(),
             _ => Unknown(sub),
         };
@@ -289,6 +292,71 @@ internal static class PackCommand
         => new(CommandContext.ExpandHome(
             CommandContext.GetOption(args, "--registry")
             ?? "~/.banyan/knowledge-packs/mounts.json"));
+
+    // KB-3: upgrade a v1 pack to v2 (format_version=2), optionally Ed25519-signing it.
+    private static async Task<int> MigrateAsync(string[] args)
+    {
+        var input = FirstValue(args);
+        var output = CommandContext.GetOption(args, "--out");
+        if (input is null) { Console.Error.WriteLine("banyan pack migrate: input pack path is required."); return 64; }
+        if (output is null) { Console.Error.WriteLine("banyan pack migrate: --out PATH is required."); return 64; }
+
+        try
+        {
+            await using (var src = File.OpenRead(input))
+            await using (var dst = new FileStream(output, FileMode.Create, FileAccess.ReadWrite))
+            {
+                await PackMigrator.MigrateToV2Async(src, dst);
+
+                var seed = CommandContext.GetOption(args, "--sign-key");
+                if (seed is not null)
+                {
+                    using var signer = Ed25519PackSigner.FromSeed(
+                        Convert.FromBase64String(seed), CommandContext.GetOption(args, "--key-id"));
+                    dst.Position = 0;
+                    await PackSigning.SignAsync(dst, signer);
+                    Console.WriteLine($"migrated + signed (v2): {output}");
+                }
+                else
+                {
+                    Console.WriteLine($"migrated (v2, unsigned): {output}");
+                }
+            }
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"banyan pack migrate: {ex.Message}");
+            return 1;
+        }
+    }
+
+    // KB-3: verify a v2 pack's Ed25519 signature. --key is a base64 seed, or a
+    // base64 public key with --public (the trusted publisher key).
+    private static async Task<int> VerifyAsync(string[] args)
+    {
+        var input = FirstValue(args);
+        var key = CommandContext.GetOption(args, "--key");
+        if (input is null) { Console.Error.WriteLine("banyan pack verify: pack path is required."); return 64; }
+        if (key is null) { Console.Error.WriteLine("banyan pack verify: --key BASE64 is required."); return 64; }
+
+        try
+        {
+            var keyBytes = Convert.FromBase64String(key);
+            using var signer = args.Contains("--public")
+                ? Ed25519PackSigner.FromPublicKey(keyBytes)
+                : Ed25519PackSigner.FromSeed(keyBytes);
+            await using var pack = File.OpenRead(input);
+            var result = await PackSigning.VerifyAsync(pack, signer);
+            Console.WriteLine($"verify: {result}");
+            return result == PackVerification.Valid ? 0 : 1;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"banyan pack verify: {ex.Message}");
+            return 1;
+        }
+    }
 
     private static string? FirstValue(string[] args)
         => args.FirstOrDefault(static arg => !arg.StartsWith("-", StringComparison.Ordinal));
