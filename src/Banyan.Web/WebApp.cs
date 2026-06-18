@@ -29,15 +29,27 @@ public static class WebApp
     /// </summary>
     public static async Task RunAsync(WebOptions opts, string[]? rawArgs = null, CancellationToken ct = default)
     {
-        // AppContext.BaseDirectory is the directory of the host executable regardless of whether
-        // the app is single-file or multi-file, replacing Assembly.Location which is empty in SFAs.
-        var contentRoot = AppContext.BaseDirectory;
-        var builder = WebApplication.CreateBuilder(new WebApplicationOptions
-        {
-            Args            = rawArgs ?? Array.Empty<string>(),
-            ContentRootPath = contentRoot,
-            WebRootPath     = Path.Combine(contentRoot, "wwwroot"),
-        });
+        // AppContext.BaseDirectory is the directory of the host executable. A published /
+        // dotnet-tool deployment materialises the Blazor framework assets under
+        // wwwroot/_framework next to the binary, so point the content root there and let
+        // MapStaticAssets serve them. A plain build/`dotnet run` has no such file (assets are
+        // resolved from the source manifest), so keep the default content root in that case.
+        var executableRoot = AppContext.BaseDirectory;
+        var publishedWebRoot = Path.Combine(executableRoot, "wwwroot");
+        var isPublished = File.Exists(Path.Combine(publishedWebRoot, "_framework", "blazor.web.js"));
+        var appOptions = isPublished
+            ? new WebApplicationOptions
+            {
+                Args = rawArgs ?? Array.Empty<string>(),
+                ContentRootPath = executableRoot,
+                WebRootPath = publishedWebRoot,
+            }
+            : new WebApplicationOptions
+            {
+                Args = rawArgs ?? Array.Empty<string>(),
+            };
+
+        var builder = WebApplication.CreateBuilder(appOptions);
         builder.WebHost.UseUrls(opts.Urls);
         builder.Services.AddSingleton(opts);
         builder.Services.AddHttpClient();
@@ -289,6 +301,7 @@ public static class WebApp
 
         app.MapRazorComponents<App>()
             .AddInteractiveServerRenderMode();
+        app.MapStaticAssets();
 
         Console.WriteLine($"Banyan demo web UI listening on {opts.Urls}");
         Console.WriteLine($"  memory.db : {memoryDb}");
