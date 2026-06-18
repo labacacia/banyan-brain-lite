@@ -1,3 +1,6 @@
+// Copyright 2026 INNO LOTUS PTY LTD
+// SPDX-License-Identifier: Apache-2.0
+
 namespace Banyan.Identity;
 
 /// <summary>Configuration shape for the OLS-backed human identity track. See docs/architecture/identity.md.</summary>
