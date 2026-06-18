@@ -1,5 +1,11 @@
 # Banyan Knowledge Pack Format
 
+> **v2 is the current format.** The canonical, cross-edition specification —
+> manifest schema, in-pack embeddings, signing, encryption, and the
+> compatibility matrix — lives at
+> [`docs/architecture/banyanpack-format-v2.md`](../../../../docs/architecture/banyanpack-format-v2.md).
+> This page describes the original v1 core layout.
+
 `.banyanpack` is a ZIP archive with a required `manifest.json` entry at the archive root.
 
 Initial layout:
