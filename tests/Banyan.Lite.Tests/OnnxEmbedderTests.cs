@@ -20,8 +20,8 @@ public sealed class OnnxEmbedderTests
     private static bool ModelAvailable(out OnnxEmbedderOptions opts)
     {
         opts = ResolvedOptions();
-        return File.Exists(OnnxEmbedder.ExpandHome(opts.ModelPath))
-            && File.Exists(OnnxEmbedder.ExpandHome(opts.VocabPath));
+        return File.Exists(EmbedderPaths.ExpandHome(opts.ModelPath))
+            && File.Exists(EmbedderPaths.ExpandHome(opts.VocabPath));
     }
 
     private static double Cosine(float[] a, float[] b)

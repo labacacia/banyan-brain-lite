@@ -43,8 +43,8 @@ public sealed class OnnxEmbedder : IEmbedder, IDisposable
     /// <summary>Open an embedder by paths. Throws <see cref="FileNotFoundException"/> if either file is missing.</summary>
     public static OnnxEmbedder Open(OnnxEmbedderOptions opts)
     {
-        var modelPath = ExpandHome(opts.ModelPath);
-        var vocabPath = ExpandHome(opts.VocabPath);
+        var modelPath = EmbedderPaths.ExpandHome(opts.ModelPath);
+        var vocabPath = EmbedderPaths.ExpandHome(opts.VocabPath);
         if (!File.Exists(modelPath))
             throw new FileNotFoundException($"ONNX model not found at {modelPath}. Run `banyan embedder download` first.", modelPath);
         if (!File.Exists(vocabPath))
@@ -140,12 +140,5 @@ public sealed class OnnxEmbedder : IEmbedder, IDisposable
             for (int d = 0; d < v.Length; d++) v[d] *= inv;
         }
         return v;
-    }
-
-    public static string ExpandHome(string path)
-    {
-        if (string.IsNullOrEmpty(path) || path[0] != '~') return path;
-        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
-        return path.Length == 1 ? home : Path.Combine(home, path.TrimStart('~', '/'));
     }
 }

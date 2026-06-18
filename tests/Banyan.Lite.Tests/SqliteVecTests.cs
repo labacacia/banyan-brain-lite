@@ -22,8 +22,8 @@ public sealed class SqliteVecTests
         opts = new OnnxEmbedderOptions();
         if (Environment.GetEnvironmentVariable("BANYAN_EMBEDDER_MODEL") is { Length: > 0 } m) opts.ModelPath = m;
         if (Environment.GetEnvironmentVariable("BANYAN_EMBEDDER_VOCAB") is { Length: > 0 } v) opts.VocabPath = v;
-        return File.Exists(OnnxEmbedder.ExpandHome(opts.ModelPath))
-            && File.Exists(OnnxEmbedder.ExpandHome(opts.VocabPath));
+        return File.Exists(EmbedderPaths.ExpandHome(opts.ModelPath))
+            && File.Exists(EmbedderPaths.ExpandHome(opts.VocabPath));
     }
 
     [Fact]

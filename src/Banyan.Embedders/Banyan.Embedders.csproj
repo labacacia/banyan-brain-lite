@@ -5,13 +5,9 @@
 
     <IsPackable>true</IsPackable>
     <PackageId>Banyan.Embedders</PackageId>
-    <Description>Banyan IEmbedder implementations — HashingEmbedder (offline char n-gram, zero deps) and OnnxEmbedder (BERT-WordPiece + Microsoft.ML.OnnxRuntime; defaults to all-MiniLM-L6-v2 INT8). Includes EmbedderFactory env-var switching.</Description>
+    <Description>Banyan IEmbedder core — HashingEmbedder (offline char n-gram, zero deps) + EmbedderFactory env-var switching with a pluggable ONNX provider. The ONNX embedder ships separately in Banyan.Embedders.Onnx so this package (and the Banyan CLI tool) stays free of the ONNX runtime native payload.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.*" />
-    <PackageReference Include="Microsoft.ML.Tokenizers"  Version="1.0.*" />
   </ItemGroup>
 </Project>

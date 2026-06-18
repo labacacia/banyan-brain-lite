@@ -7,6 +7,7 @@
     <ProjectReference Include="../../src/Banyan.Core/Banyan.Core.csproj" />
     <ProjectReference Include="../../src/Banyan.Lite/Banyan.Lite.csproj" />
     <ProjectReference Include="../../src/Banyan.Embedders/Banyan.Embedders.csproj" />
+    <ProjectReference Include="../../src/Banyan.Embedders.Onnx/Banyan.Embedders.Onnx.csproj" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="xunit.v3" Version="1.*" />

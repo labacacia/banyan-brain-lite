@@ -1,5 +1,13 @@
 using Banyan.Cli.Commands;
 
+#if ONNX
+// Full build (installer/dev): register the ONNX embedder so semantic embeddings
+// are available. The slim CLI tool (packed with -p:SlimTool=true) omits the
+// Banyan.Embedders.Onnx reference and this call, falling back to hashing — ONNX
+// then comes from the Banyan.Embedders.Onnx NuGet package for library consumers.
+Banyan.Embedders.OnnxEmbedderRegistration.Register();
+#endif
+
 if (args.Length == 0 || args[0] is "--help" or "-h" or "help")
 {
     PrintHelp();

@@ -4,6 +4,7 @@
     <Project Path="src/Banyan.Cli/Banyan.Cli.csproj" />
     <Project Path="src/Banyan.Core/Banyan.Core.csproj" />
     <Project Path="src/Banyan.Embedders/Banyan.Embedders.csproj" />
+    <Project Path="src/Banyan.Embedders.Onnx/Banyan.Embedders.Onnx.csproj" />
     <Project Path="src/Banyan.Identity/Banyan.Identity.csproj" />
     <Project Path="src/Banyan.Lite/Banyan.Lite.csproj" />
     <Project Path="src/Banyan.Mcp/Banyan.Mcp.csproj" />

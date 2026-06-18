@@ -34,8 +34,8 @@ internal static class EmbedderCommand
     private static async Task<int> DownloadAsync(string[] args)
     {
         var opts = new OnnxEmbedderOptions();
-        var modelPath = OnnxEmbedder.ExpandHome(CommandContext.GetOption(args, "--model-out") ?? opts.ModelPath);
-        var vocabPath = OnnxEmbedder.ExpandHome(CommandContext.GetOption(args, "--vocab-out") ?? opts.VocabPath);
+        var modelPath = EmbedderPaths.ExpandHome(CommandContext.GetOption(args, "--model-out") ?? opts.ModelPath);
+        var vocabPath = EmbedderPaths.ExpandHome(CommandContext.GetOption(args, "--vocab-out") ?? opts.VocabPath);
         var modelUrl  = CommandContext.GetOption(args, "--model-url") ?? DefaultModelUrl;
         var vocabUrl  = CommandContext.GetOption(args, "--vocab-url") ?? DefaultVocabUrl;
         var force     = CommandContext.HasFlag(args, "--force");
@@ -70,7 +70,7 @@ internal static class EmbedderCommand
             return null;
         }
 
-        var dstDir = Path.Combine(OnnxEmbedder.ExpandHome("~/.banyan/sqlite-vec"));
+        var dstDir = Path.Combine(EmbedderPaths.ExpandHome("~/.banyan/sqlite-vec"));
         Directory.CreateDirectory(dstDir);
         var libPath = Path.Combine(dstDir, libName);
         if (File.Exists(libPath) && !force)
@@ -171,8 +171,8 @@ internal static class EmbedderCommand
         if (CommandContext.GetOption(args, "--model") is { } m) opts.ModelPath = m;
         if (CommandContext.GetOption(args, "--vocab") is { } v) opts.VocabPath = v;
 
-        var mp = OnnxEmbedder.ExpandHome(opts.ModelPath);
-        var vp = OnnxEmbedder.ExpandHome(opts.VocabPath);
+        var mp = EmbedderPaths.ExpandHome(opts.ModelPath);
+        var vp = EmbedderPaths.ExpandHome(opts.VocabPath);
         Console.WriteLine($"model: {mp}    {(File.Exists(mp) ? $"OK ({new FileInfo(mp).Length / 1024 / 1024} MB)" : "MISSING")}");
         Console.WriteLine($"vocab: {vp}    {(File.Exists(vp) ? $"OK ({new FileInfo(vp).Length / 1024} KB)" : "MISSING")}");
 
@@ -180,11 +180,19 @@ internal static class EmbedderCommand
         {
             try
             {
-                using var emb = OnnxEmbedder.Open(opts);
-                Console.WriteLine($"dim:      {emb.Dimensions}");
-                Console.WriteLine($"model_id: {emb.ModelId}");
-                var sample = emb.EmbedAsync("hello world").GetAwaiter().GetResult();
-                Console.WriteLine($"sample:   {sample.Length} dims, first 5 = [{string.Join(", ", sample.Take(5).Select(x => x.ToString("F4")))}]");
+                // Resolve through the factory so the active embedder is reported —
+                // ONNX when the Banyan.Embedders.Onnx companion is present (and files
+                // exist), otherwise the hashing fallback. Keeps this command free of a
+                // direct ONNX type reference so the slim CLI tool builds without it.
+                var emb = EmbedderFactory.Create(Console.Error);
+                try
+                {
+                    Console.WriteLine($"dim:      {emb.Dimensions}");
+                    Console.WriteLine($"model_id: {emb.ModelId}");
+                    var sample = emb.EmbedAsync("hello world").GetAwaiter().GetResult();
+                    Console.WriteLine($"sample:   {sample.Length} dims, first 5 = [{string.Join(", ", sample.Take(5).Select(x => x.ToString("F4")))}]");
+                }
+                finally { (emb as IDisposable)?.Dispose(); }
             }
             catch (Exception ex) { Console.WriteLine($"load error: {ex.Message}"); }
         }
