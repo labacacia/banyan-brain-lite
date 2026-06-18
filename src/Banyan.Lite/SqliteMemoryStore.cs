@@ -1,3 +1,6 @@
+// Copyright 2026 INNO LOTUS PTY LTD
+// SPDX-License-Identifier: Apache-2.0
+
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 using System.Text.Json;

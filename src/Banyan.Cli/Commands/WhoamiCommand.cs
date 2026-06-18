@@ -1,3 +1,6 @@
+// Copyright 2026 INNO LOTUS PTY LTD
+// SPDX-License-Identifier: Apache-2.0
+
 using System.IdentityModel.Tokens.Jwt;
 
 namespace Banyan.Cli.Commands;
