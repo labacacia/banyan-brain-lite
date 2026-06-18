@@ -15,8 +15,9 @@ public sealed record PrincipalRef(
 }
 
 /// <summary>
-/// Reference to a signed access envelope. Populated only by Ent (mirrored into
-/// <c>BanyanBrain.Ent.Domain</c> by ISO-2); <c>null</c> for Lite/Pro.
+/// Reference to a signed access envelope. Populated only by the enterprise
+/// edition's isolation layer (which mirrors this contract locally);
+/// <c>null</c> for Lite/Pro.
 /// </summary>
 public sealed record AccessEnvelopeRef(
     string EnvelopeId,
