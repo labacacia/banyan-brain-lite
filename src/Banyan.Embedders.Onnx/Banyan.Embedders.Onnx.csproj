@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <AssemblyName>Banyan.Embedders.Onnx</AssemblyName>
+    <RootNamespace>Banyan.Embedders</RootNamespace>
+
+    <IsPackable>true</IsPackable>
+    <PackageId>Banyan.Embedders.Onnx</PackageId>
+    <Description>Banyan ONNX embedding provider — OnnxEmbedder (BERT-WordPiece + Microsoft.ML.OnnxRuntime; defaults to all-MiniLM-L6-v2 INT8). Companion to Banyan.Embedders, kept separate so the core package and the Banyan CLI tool stay free of the ONNX runtime native payload.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
+    <ProjectReference Include="../Banyan.Embedders/Banyan.Embedders.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.20.*" />
+    <PackageReference Include="Microsoft.ML.Tokenizers"  Version="1.0.*" />
+  </ItemGroup>
+</Project>

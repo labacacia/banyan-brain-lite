@@ -45,6 +45,9 @@ todo
 
 # ── ML assets — these are fetched at runtime via `banyan embedder download` ─
 *.onnx
+# `*.onnx` matches the Banyan.Embedders.Onnx project directory case-insensitively
+# (core.ignorecase), which would silently swallow its sources. Keep the project tracked.
+!src/Banyan.Embedders.Onnx/
 vec0.so
 vec0.dylib
 vec0.dll
