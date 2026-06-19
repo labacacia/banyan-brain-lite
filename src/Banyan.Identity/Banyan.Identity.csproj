@@ -15,5 +15,7 @@
     <PackageReference Include="OLS.Root.Authorisation" Version="1.0.0-alpha.1" />
     <PackageReference Include="OLS.Root.Oidc" Version="1.0.0-alpha.1" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.*" />
+    <!-- Pin transitive SQLitePCLRaw above the vulnerable e_sqlite3 2.1.10 (GHSA-2m69-gcr7-jv3q / NU1903). -->
+    <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
   </ItemGroup>
 </Project>
