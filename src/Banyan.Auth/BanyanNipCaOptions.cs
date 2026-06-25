@@ -31,7 +31,4 @@ public sealed class BanyanNipCaOptions
     public int AgentCertValidityDays  { get; set; } = 30;
     public int NodeCertValidityDays   { get; set; } = 365;
     public int RenewalWindowDays      { get; set; } = 7;
-
-    /// <summary>Optional remote CA URL. When set, <see cref="BanyanNipCa.Open"/> returns a remote client (deferred to P3); otherwise an embedded CA backed by <see cref="DbPath"/>.</summary>
-    public string? RemoteCaUrl { get; set; }
 }

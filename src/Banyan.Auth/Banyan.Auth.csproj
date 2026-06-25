@@ -5,7 +5,7 @@
 
     <IsPackable>true</IsPackable>
     <PackageId>Banyan.Auth</PackageId>
-    <Description>Banyan NID identity track — EmbeddedNipCa (local CA on top of NPS.NIP) and SqliteNipCaStore (no Postgres dep). Remote CA access uses the official NPS.NIP.Client.NipCaClient. Pairs with Banyan.Web/Node which mount the matching NIP-CA HTTP routes via NipCaRouter.</Description>
+    <Description>Banyan NID identity track — EmbeddedNipCa (local NIP CA built on NPS.NIP's NipCaService; v1-proprietary cert format, not the §6 X.509 dual-trust profile) and SqliteNipCaStore (no Postgres dep). Remote CA access uses the official NPS.NIP.Client.NipCaClient. Pairs with Banyan.Web/Node which mount the matching NIP-CA HTTP routes via NipCaRouter.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />

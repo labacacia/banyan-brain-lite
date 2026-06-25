@@ -6,6 +6,15 @@ How Banyan plugs into the [NPS-3](https://github.com/labacacia/NPS-Release)
 stack — what we consume off the shelf, what we adapt, and where we filled
 gaps.
 
+> **Update (2026-06, NPS SDK `1.0.0-alpha.13`).** The alpha.4/alpha.5 spike notes below are
+> historical. As of the NPS integration review (see [`../../../docs/architecture/nps-review.md`](../../../docs/architecture/nps-review.md)):
+> the NIP CA **HTTP surface now delegates to the SDK `NPS.NIP.Http.NipCaRouter`** (the hand-rolled
+> `NipCaEndpoints` is gone), and `RemoteNipCaClient` speaks the canonical NipCaRouter wire.
+> The SQLite **store is kept** — the official `NPS.NIP.Storage.Sqlite` store is a functional subset
+> (no list-all / in-memory), so Lite's store remains as a justified `INipCaStore` superset. The
+> NID-auth middleware keeps its two-step verify (SDK verifier for the frame + live CA store for
+> revocation) by design.
+
 NPS-3 is split into three protocol layers:
 
 | Layer | Purpose | NuGet | What Banyan does |

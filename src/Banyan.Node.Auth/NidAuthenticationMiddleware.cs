@@ -70,8 +70,13 @@ public sealed class NidAuthenticationMiddleware(
                     }
                     else if (ca is not null)
                     {
-                        // Static LocalRevokedSerials doesn't see runtime revocations from the
-                        // embedded CA, so consult the CA's authoritative status before granting.
+                        // Intentional two-step verification (NOT redundant — do not "optimize" into one):
+                        //  1. NipIdentVerifier above validates the presented frame cryptographically
+                        //     (signature / trusted issuer / expiry / caps / scope).
+                        //  2. ca.VerifyAsync gives LIVE store-backed revocation + existence. The SDK
+                        //     verifier's own revocation channel can't do this for an embedded CA — it's
+                        //     static (LocalRevokedSerials) or an OCSP HTTP call, neither of which sees
+                        //     runtime revocations against the local store. (NPS-review F5 / #6.)
                         var caStatus = await ca.VerifyAsync(frame.Nid, ctx.RequestAborted);
                         if (!caStatus.Valid)
                         {
