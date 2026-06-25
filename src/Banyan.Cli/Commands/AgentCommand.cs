@@ -50,9 +50,8 @@ internal static class AgentCommand
         if (RemoteUrl(args) is { } remoteUrl)
         {
             using var rc = new RemoteNipCaClient(remoteUrl);
-            var resp = await rc.RegisterAgentAsync(id, pubKey, caps);
-            nid = resp.Nid; serial = resp.Serial; expiresAt = resp.ExpiresAt;
-            issuedBy = (await rc.CaCertAsync())?.Nid ?? "(remote)";
+            var frame = await rc.RegisterAgentAsync(id, pubKey, caps);
+            nid = frame.Nid; serial = frame.Serial; issuedBy = frame.IssuedBy; expiresAt = frame.ExpiresAt;
         }
         else
         {
@@ -129,13 +128,13 @@ internal static class AgentCommand
         }
         var nid    = args[0];
         var rest   = args.Skip(1).ToArray();
-        var reason = CommandContext.GetOption(rest, "--reason") ?? "operator-initiated";
+        var reason = CommandContext.GetOption(rest, "--reason") ?? "cessation_of_operation";
 
         if (RemoteUrl(rest) is { } remoteUrl)
         {
             using var rc = new RemoteNipCaClient(remoteUrl);
             var r = await rc.RevokeAsync(nid, reason);
-            Console.WriteLine($"Revoked {r.Nid}");
+            Console.WriteLine($"Revoked {r.TargetNid}");
             Console.WriteLine($"  reason:    {r.Reason}");
             Console.WriteLine($"  signed at: {r.RevokedAt}");
             return 0;

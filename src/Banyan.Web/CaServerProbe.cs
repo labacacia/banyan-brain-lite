@@ -31,24 +31,24 @@ public static class CaServerProbe
         try
         {
             using var client = new RemoteNipCaClient(normalized, http);
-            RemoteNipCaClient.CaCertResponse? cert = null;
-            try { cert = await client.CaCertAsync(ct); }
+
+            // The discovery doc is the authoritative source for the CA NID (issuer) + public key;
+            // the canonical /v1/ca/cert only returns the key (no NID).
+            RemoteNipCaClient.WellKnownResponse? wellKnown = null;
+            try { wellKnown = await client.WellKnownAsync(ct); }
             catch (Exception ex) when (ex is HttpRequestException or RemoteNipCaException) { }
 
-            if (cert is not null &&
-                !string.IsNullOrWhiteSpace(cert.Nid) &&
-                !string.IsNullOrWhiteSpace(cert.PubKey))
-            {
-                return new(true, normalized, cert.Nid, cert.PubKey, cert.DisplayName, "CA server is reachable.");
-            }
-
-            var wellKnown = await client.WellKnownAsync(ct);
             if (wellKnown is not null &&
-                !string.IsNullOrWhiteSpace(wellKnown.NpsCa) &&
+                !string.IsNullOrWhiteSpace(wellKnown.Issuer) &&
                 !string.IsNullOrWhiteSpace(wellKnown.PublicKey))
             {
-                return new(true, normalized, wellKnown.NpsCa, wellKnown.PublicKey, wellKnown.DisplayName, "CA server is reachable.");
+                return new(true, normalized, wellKnown.Issuer, wellKnown.PublicKey, wellKnown.DisplayName, "CA server is reachable.");
             }
+
+            // Fallback: confirm a CA key is served even without a discovery doc (NID then unknown).
+            var cert = await client.CaCertAsync(ct);
+            if (cert is not null && !string.IsNullOrWhiteSpace(cert.PublicKey))
+                return new(true, normalized, null, cert.PublicKey, null, "CA server reachable (no discovery doc; CA NID unknown).");
 
             return new(false, normalized, null, null, null, "CA server did not return a CA certificate.");
         }

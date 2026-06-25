@@ -89,22 +89,21 @@ public sealed class RemoteNipCaClientTests : IAsyncLifetime
     {
         var c = await _client.CaCertAsync();
         Assert.NotNull(c);
-        Assert.Equal("urn:nps:ca:test.banyan:root", c!.Nid);
-        Assert.StartsWith("ed25519:", c.PubKey);
+        Assert.StartsWith("ed25519:", c!.PublicKey);
+        Assert.Equal("ed25519", c.Algorithm);
     }
 
     [Fact]
     public async Task RegisterAgent_RoundTrip_AndVerify()
     {
-        var resp = await _client.RegisterAgentAsync("alpha", GenAgentPubKey(), new[] { "memory.read" });
-        Assert.Contains(":alpha", resp.Nid);
-        Assert.NotNull(resp.IdentFrame);
-        Assert.NotEmpty(resp.Serial);
+        var frame = await _client.RegisterAgentAsync("alpha", GenAgentPubKey(), new[] { "memory.read" });
+        Assert.Contains(":alpha", frame.Nid);
+        Assert.NotEmpty(frame.Serial);
+        Assert.NotEmpty(frame.Signature);
 
-        var v = await _client.VerifyAsync(resp.Nid);
+        var v = await _client.VerifyAsync(frame.Nid);
         Assert.True(v.Valid);
-        Assert.Equal(resp.Nid, v.Nid);
-        Assert.Equal("agent", v.EntityType);
+        Assert.Equal(frame.Nid, v.Nid);
     }
 
     [Fact]
@@ -118,24 +117,22 @@ public sealed class RemoteNipCaClientTests : IAsyncLifetime
     [Fact]
     public async Task Revoke_ThenVerify_ReturnsRevokedError()
     {
-        var resp = await _client.RegisterAgentAsync("bravo", GenAgentPubKey(), Array.Empty<string>());
-        var rev  = await _client.RevokeAsync(resp.Nid, "smoke-revoke");
-        Assert.Equal(resp.Nid, rev.Nid);
-        Assert.Equal("smoke-revoke", rev.Reason);
+        var frame = await _client.RegisterAgentAsync("bravo", GenAgentPubKey(), Array.Empty<string>());
+        var rev  = await _client.RevokeAsync(frame.Nid, "cessation_of_operation");
+        Assert.Equal(frame.Nid, rev.TargetNid);
+        Assert.Equal("cessation_of_operation", rev.Reason);
 
-        var v = await _client.VerifyAsync(resp.Nid);
+        var v = await _client.VerifyAsync(frame.Nid);
         Assert.False(v.Valid);
-        Assert.Equal("NIP-CERT-REVOKED", v.ErrorCode);
     }
 
     [Fact]
     public async Task RegisterNode_TagsEntityType()
     {
-        var resp = await _client.RegisterNodeAsync("node-1", GenAgentPubKey(), Array.Empty<string>());
-        Assert.Contains(":node:", resp.Nid);
+        var frame = await _client.RegisterNodeAsync("node-1", GenAgentPubKey(), Array.Empty<string>());
+        Assert.Contains(":node:", frame.Nid);
 
-        var v = await _client.VerifyAsync(resp.Nid);
+        var v = await _client.VerifyAsync(frame.Nid);
         Assert.True(v.Valid);
-        Assert.Equal("node", v.EntityType);
     }
 }

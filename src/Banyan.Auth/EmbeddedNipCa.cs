@@ -118,7 +118,7 @@ public sealed class EmbeddedNipCa : IAsyncDisposable
         NodeCertValidityDays       = o.NodeCertValidityDays,
         RenewalWindowDays          = o.RenewalWindowDays,
         Algorithms                 = new[] { "ed25519" },
-        RoutePrefix                = "/.nip",
+        RoutePrefix                = "",   // CA routes mount at root /v1/... (NipCaRouter.MapNipCa)
         NormalizeOcspResponseTime  = false,
     };
 

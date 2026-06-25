@@ -3,14 +3,17 @@
 
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using NPS.NIP.Frames;
 
 namespace Banyan.Auth;
 
 /// <summary>
-/// HTTP client for an NPS-3 §8 conformant NIP CA server (path layout from
-/// <see href="https://github.com/labacacia/nip-ca-server"/>). Mirrors the call shapes of
-/// <see cref="EmbeddedNipCa"/> so callers can swap in/out by configuration.
+/// HTTP client for a canonical NPS NIP CA server — the contract served by the SDK
+/// <c>NPS.NIP.Http.NipCaRouter</c> (and <see href="https://github.com/labacacia/nip-ca-server"/>).
+/// Speaks the SDK wire shapes: register/renew return a bare <see cref="IdentFrame"/>, revoke a bare
+/// <see cref="RevokeFrame"/>, verify the OCSP-style status body. Returns the same SDK frame types as
+/// <see cref="EmbeddedNipCa"/> so callers can swap embedded/remote by configuration.
 /// </summary>
 public sealed class RemoteNipCaClient : IAsyncDisposable, IDisposable
 {
@@ -25,28 +28,24 @@ public sealed class RemoteNipCaClient : IAsyncDisposable, IDisposable
         _ownsHttp = http is null;
     }
 
-    public sealed record IssueResponse(string Nid, string Serial, string IssuedAt, string ExpiresAt, IdentFrame? IdentFrame);
-    public sealed record VerifyResponse(bool Valid, string Nid, string? EntityType, string? PubKey, string[]? Capabilities,
-        string? IssuedBy, string? IssuedAt, string? ExpiresAt, string? Serial, string? ErrorCode, string? Message);
-    public sealed record RevokeResponse(string Nid, string? RevokedAt, string Reason);
-    public sealed record CaCertResponse(string Nid, string DisplayName, string PubKey, string Algorithm);
-    public sealed record WellKnownResponse(string NpsCa, string Issuer, string DisplayName, string PublicKey, string[] Algorithms,
-        string[] CertFormats, IReadOnlyDictionary<string, string> Endpoints, string[] Capabilities, int MaxCertValidityDays);
+    /// <summary>OCSP-style verify status (NipCaRouter <c>/v1/{agents|nodes}/{nid}/verify</c>).</summary>
+    public sealed record VerifyResponse(bool Valid, string? Nid, string? ExpiresAt, string? Serial, string? ErrorCode, string? Message);
 
-    /// <summary>
-    /// Request bodies use explicit snake_case dictionary keys (NPS wire format),
-    /// so we don't apply <see cref="JsonNamingPolicy.SnakeCaseLower"/> — it would re-mangle
-    /// already-snake-cased keys. Response deserialization uses snake-case naming so
-    /// CLR PascalCase property names line up with NPS JSON.
-    /// </summary>
-    private static readonly JsonSerializerOptions s_request = new()
-    {
-        PropertyNameCaseInsensitive = true,
-    };
+    /// <summary>CA public key (NipCaRouter <c>/v1/ca/cert</c> — note: no NID/display_name; use <see cref="WellKnownAsync"/> for those).</summary>
+    public sealed record CaCertResponse(string PublicKey, string Algorithm);
+
+    /// <summary>CA discovery doc (NipCaRouter <c>/.well-known/nps-ca</c>). <see cref="Issuer"/> is the CA NID.</summary>
+    public sealed record WellKnownResponse(string NpsCa, string Issuer, string? DisplayName, string PublicKey,
+        string[] Algorithms, IReadOnlyDictionary<string, string> Endpoints, string[] Capabilities, int MaxCertValidityDays);
+
+    // Request keys are explicit snake_case (no naming policy so they aren't re-mangled).
+    private static readonly JsonSerializerOptions s_request = new() { PropertyNameCaseInsensitive = true };
+    // Responses are snake_case NPS frames; SnakeCaseLower + case-insensitive lines CLR props up with the wire.
     private static readonly JsonSerializerOptions s_response = new()
     {
         PropertyNameCaseInsensitive = true,
-        PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        PropertyNamingPolicy        = JsonNamingPolicy.SnakeCaseLower,
+        DefaultIgnoreCondition      = JsonIgnoreCondition.WhenWritingNull,
     };
 
     // ── Health / discovery ──────────────────────────────────────────────────
@@ -69,48 +68,46 @@ public sealed class RemoteNipCaClient : IAsyncDisposable, IDisposable
 
     // ── Register agent / node ────────────────────────────────────────────────
 
-    public Task<IssueResponse> RegisterAgentAsync(string identifier, string pubKey, string[] capabilities,
+    public Task<IdentFrame> RegisterAgentAsync(string identifier, string pubKey, string[] capabilities,
         JsonElement? scope = null, JsonElement? metadata = null, CancellationToken ct = default)
         => RegisterAsync("/v1/agents/register", identifier, pubKey, capabilities, scope, metadata, ct);
 
-    public Task<IssueResponse> RegisterNodeAsync(string identifier, string pubKey, string[] capabilities,
+    public Task<IdentFrame> RegisterNodeAsync(string identifier, string pubKey, string[] capabilities,
         JsonElement? scope = null, JsonElement? metadata = null, CancellationToken ct = default)
         => RegisterAsync("/v1/nodes/register", identifier, pubKey, capabilities, scope, metadata, ct);
 
-    private async Task<IssueResponse> RegisterAsync(
+    private async Task<IdentFrame> RegisterAsync(
         string path, string identifier, string pubKey, string[] capabilities,
         JsonElement? scope, JsonElement? metadata, CancellationToken ct)
     {
-        // Pass the identifier as a partial NID hint so the server's BuildNid logic uses it verbatim.
-        // The server treats `nid` as optional and parses out the trailing identifier segment.
-        // Names are matched case-insensitively on the server side; explicit snake_case below
-        // matches the NPS spec verbatim regardless of whether NamingPolicy fires.
+        // SDK RegisterRequest: identifier + pub_key + capabilities + scope_json/metadata_json (JSON strings).
         var body = new Dictionary<string, object?>
         {
-            ["nid"]          = identifier,
-            ["pub_key"]      = pubKey,
-            ["capabilities"] = capabilities,
-            ["scope"]        = scope    ?? JsonDocument.Parse("{}").RootElement,
-            ["metadata"]     = metadata ?? JsonDocument.Parse("{}").RootElement,
+            ["identifier"]    = identifier,
+            ["pub_key"]       = pubKey,
+            ["capabilities"]  = capabilities,
+            ["scope_json"]    = scope?.GetRawText()    ?? "{}",
+            ["metadata_json"] = metadata?.GetRawText() ?? "{}",
         };
         var resp = await _http.PostAsJsonAsync($"{Endpoint}{path}", body, s_request, ct);
         await ThrowIfNotSuccessAsync(resp, ct);
-        return (await resp.Content.ReadFromJsonAsync<IssueResponse>(s_response, ct))!;
+        return (await resp.Content.ReadFromJsonAsync<IdentFrame>(s_response, ct))!;
     }
 
-    public async Task<IssueResponse> RenewAsync(string nid, CancellationToken ct = default)
+    public async Task<IdentFrame> RenewAsync(string nid, CancellationToken ct = default)
     {
         var resp = await _http.PostAsync($"{Endpoint}/v1/agents/{Uri.EscapeDataString(nid)}/renew", content: null, ct);
         await ThrowIfNotSuccessAsync(resp, ct);
-        return (await resp.Content.ReadFromJsonAsync<IssueResponse>(s_response, ct))!;
+        return (await resp.Content.ReadFromJsonAsync<IdentFrame>(s_response, ct))!;
     }
 
-    public async Task<RevokeResponse> RevokeAsync(string nid, string? reason = null, CancellationToken ct = default)
+    public async Task<RevokeFrame> RevokeAsync(string nid, string? reason = null, CancellationToken ct = default)
     {
-        var body = new Dictionary<string, object?> { ["reason"] = reason ?? "operator-initiated" };
+        // Reason must be one of the SDK's allowed revocation reasons; default to the spec's catch-all.
+        var body = new Dictionary<string, object?> { ["reason"] = reason ?? "cessation_of_operation" };
         var resp = await _http.PostAsJsonAsync($"{Endpoint}/v1/agents/{Uri.EscapeDataString(nid)}/revoke", body, s_request, ct);
         await ThrowIfNotSuccessAsync(resp, ct);
-        return (await resp.Content.ReadFromJsonAsync<RevokeResponse>(s_response, ct))!;
+        return (await resp.Content.ReadFromJsonAsync<RevokeFrame>(s_response, ct))!;
     }
 
     public async Task<VerifyResponse> VerifyAsync(string nid, CancellationToken ct = default)
