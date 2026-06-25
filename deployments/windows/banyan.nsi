@@ -11,7 +11,7 @@ SetCompressor /SOLID lzma
 
 ; ── Version ──────────────────────────────────────────────────────────────────
 !ifndef VERSION
-  !define VERSION "1.0.0"
+  !define VERSION "1.1.0"
 !endif
 
 ; ── Metadata ─────────────────────────────────────────────────────────────────
@@ -52,9 +52,9 @@ SetCompressor /SOLID lzma
 ; ── Installer attributes ──────────────────────────────────────────────────────
 Name              "${PRODUCT_NAME} ${VERSION}"
 OutFile           "banyan-lite-${VERSION}-setup.exe"
-InstallDir        "$PROGRAMFILES64\${PRODUCT_NAME}"
-InstallDirRegKey  HKLM "${INSTALL_REG_KEY}" "InstallDir"
-RequestExecutionLevel admin
+InstallDir        "$LOCALAPPDATA\Programs\${PRODUCT_NAME}"
+InstallDirRegKey  HKCU "${INSTALL_REG_KEY}" "InstallDir"
+RequestExecutionLevel user
 ShowInstDetails   show
 ShowUninstDetails show
 
@@ -65,34 +65,30 @@ Section "Banyan Lite (required)" SecMain
   SectionIn RO
   SetOutPath "$INSTDIR"
 
-  File "${PUBLISH_DIR}\${PRODUCT_EXE}"
-  File "${PUBLISH_DIR}\Banyan.Node.runtimeconfig.json"
-  File "${PUBLISH_DIR}\Banyan.Web.runtimeconfig.json"
-  File "${PUBLISH_DIR}\onnxruntime.lib"
-  File "${PUBLISH_DIR}\onnxruntime_providers_shared.lib"
+  File /r "${PUBLISH_DIR}\*.*"
 
   ; Write uninstaller
   WriteUninstaller "$INSTDIR\uninstall.exe"
 
   ; Registry: install location
-  WriteRegStr HKLM "${INSTALL_REG_KEY}" "InstallDir" "$INSTDIR"
-  WriteRegStr HKLM "${INSTALL_REG_KEY}" "Version"    "${VERSION}"
+  WriteRegStr HKCU "${INSTALL_REG_KEY}" "InstallDir" "$INSTDIR"
+  WriteRegStr HKCU "${INSTALL_REG_KEY}" "Version"    "${VERSION}"
 
   ; Add/Remove Programs entry
-  WriteRegStr   HKLM "${UNINSTALL_REG_KEY}" "DisplayName"          "${PRODUCT_NAME}"
-  WriteRegStr   HKLM "${UNINSTALL_REG_KEY}" "DisplayVersion"       "${VERSION}"
-  WriteRegStr   HKLM "${UNINSTALL_REG_KEY}" "Publisher"            "${PUBLISHER}"
-  WriteRegStr   HKLM "${UNINSTALL_REG_KEY}" "InstallLocation"      "$INSTDIR"
-  WriteRegStr   HKLM "${UNINSTALL_REG_KEY}" "UninstallString"      '"$INSTDIR\uninstall.exe"'
-  WriteRegStr   HKLM "${UNINSTALL_REG_KEY}" "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
-  WriteRegDWORD HKLM "${UNINSTALL_REG_KEY}" "NoModify"             1
-  WriteRegDWORD HKLM "${UNINSTALL_REG_KEY}" "NoRepair"             1
-  WriteRegDWORD HKLM "${UNINSTALL_REG_KEY}" "EstimatedSize"        140000
+  WriteRegStr   HKCU "${UNINSTALL_REG_KEY}" "DisplayName"          "${PRODUCT_NAME}"
+  WriteRegStr   HKCU "${UNINSTALL_REG_KEY}" "DisplayVersion"       "${VERSION}"
+  WriteRegStr   HKCU "${UNINSTALL_REG_KEY}" "Publisher"            "${PUBLISHER}"
+  WriteRegStr   HKCU "${UNINSTALL_REG_KEY}" "InstallLocation"      "$INSTDIR"
+  WriteRegStr   HKCU "${UNINSTALL_REG_KEY}" "UninstallString"      '"$INSTDIR\uninstall.exe"'
+  WriteRegStr   HKCU "${UNINSTALL_REG_KEY}" "QuietUninstallString" '"$INSTDIR\uninstall.exe" /S'
+  WriteRegDWORD HKCU "${UNINSTALL_REG_KEY}" "NoModify"             1
+  WriteRegDWORD HKCU "${UNINSTALL_REG_KEY}" "NoRepair"             1
+  WriteRegDWORD HKCU "${UNINSTALL_REG_KEY}" "EstimatedSize"        140000
 
-  ; Add install dir to system PATH via PowerShell (idempotent)
+  ; Add install dir to the user's PATH via PowerShell (idempotent)
   ; Note: $$ is the NSIS escape for a literal $, needed for PowerShell variables.
   ;       $INSTDIR is an NSIS variable and expands before PowerShell sees the command.
-  ExecWait 'powershell -NoProfile -Command "$$p = [Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\"); if ($$p -notlike \"*$INSTDIR*\") { [Environment]::SetEnvironmentVariable(\"PATH\", $$p + \";$INSTDIR\", \"Machine\") }"'
+  ExecWait 'powershell -NoProfile -Command "$$p = [Environment]::GetEnvironmentVariable(\"PATH\",\"User\"); if ($$p -notlike \"*$INSTDIR*\") { [Environment]::SetEnvironmentVariable(\"PATH\", $$p + \";$INSTDIR\", \"User\") }"'
 SectionEnd
 
 Section "Start Menu shortcuts" SecShortcuts
@@ -112,23 +108,18 @@ Section "Uninstall"
   ExecWait 'taskkill /F /IM "${PRODUCT_EXE}"' $0
 
   ; Remove files
-  Delete "$INSTDIR\${PRODUCT_EXE}"
-  Delete "$INSTDIR\Banyan.Node.runtimeconfig.json"
-  Delete "$INSTDIR\Banyan.Web.runtimeconfig.json"
-  Delete "$INSTDIR\onnxruntime.lib"
-  Delete "$INSTDIR\onnxruntime_providers_shared.lib"
   Delete "$INSTDIR\uninstall.exe"
-  RMDir  "$INSTDIR"
+  RMDir /r "$INSTDIR"
 
   ; Start Menu
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Banyan Web.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall ${PRODUCT_NAME}.lnk"
   RMDir  "$SMPROGRAMS\${PRODUCT_NAME}"
 
-  ; Remove install dir from system PATH via PowerShell
-  ExecWait 'powershell -NoProfile -Command "$$p = [Environment]::GetEnvironmentVariable(\"PATH\",\"Machine\"); $$parts = $$p -split \";\" | Where-Object { $$_ -ne \"$INSTDIR\" }; [Environment]::SetEnvironmentVariable(\"PATH\", ($$parts -join \";\"), \"Machine\")"'
+  ; Remove install dir from the user's PATH via PowerShell
+  ExecWait 'powershell -NoProfile -Command "$$p = [Environment]::GetEnvironmentVariable(\"PATH\",\"User\"); $$parts = $$p -split \";\" | Where-Object { $$_ -ne \"$INSTDIR\" }; [Environment]::SetEnvironmentVariable(\"PATH\", ($$parts -join \";\"), \"User\")"'
 
   ; Registry
-  DeleteRegKey HKLM "${UNINSTALL_REG_KEY}"
-  DeleteRegKey HKLM "${INSTALL_REG_KEY}"
+  DeleteRegKey HKCU "${UNINSTALL_REG_KEY}"
+  DeleteRegKey HKCU "${INSTALL_REG_KEY}"
 SectionEnd

@@ -56,6 +56,10 @@ banyan web
 # Open http://localhost:5180
 ```
 
+Release artifacts also include a per-user Windows installer with an Add/Remove
+Programs uninstaller (`banyan-lite-1.1.0-setup.exe`) and a Debian package
+(`banyan-lite_1.1.0_amd64.deb`).
+
 To run as a pure NWP Memory Node without the web UI:
 
 ```bash

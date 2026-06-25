@@ -26,7 +26,7 @@ set EXE=%PUBLISH_DIR%\banyan.exe
 if not exist "%EXE%" (
     echo ERROR: %EXE% not found.
     echo Run the publish step first:
-    echo   dotnet publish editions\lite\src\Banyan.Host -r win-x64 --self-contained -p:PublishSingleFile=true -o editions\lite\publish\win-x64
+    echo   dotnet publish src\Banyan.Cli\Banyan.Cli.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:EnableCompressionInSingleFile=true -o publish\win-x64
     exit /b 1
 )
 
@@ -38,7 +38,7 @@ if "%~1"=="" (
 )
 
 if "%VERSION%"=="" (
-    echo ERROR: Could not determine version from %EXE%. Pass it explicitly: build-installer.cmd 1.0.0
+    echo ERROR: Could not determine version from %EXE%. Pass it explicitly: build-installer.cmd 1.1.0
     exit /b 1
 )
 

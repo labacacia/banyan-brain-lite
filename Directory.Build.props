@@ -5,7 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <!-- Lite 1.1.0 intentionally ships against NPS 1.0.0-alpha.12 until the
+         upstream NPS packages cut a stable line. Keep pack from failing NU5104
+         while preserving warnings-as-errors for compiler diagnostics. -->
+    <NoWarn>$(NoWarn);CS1591;NU5104</NoWarn>
 
     <!-- ── Shared package metadata ─────────────────────────────────────────── -->
     <Version>1.1.0</Version>

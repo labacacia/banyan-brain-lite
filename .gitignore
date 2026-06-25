@@ -66,6 +66,7 @@ desktop.ini
 
 # ── Build artifacts (dotnet pack output) ────────────────────────────────────
 artifacts/
+publish/
 
 # ── Tooling caches ──────────────────────────────────────────────────────────
 .cache/
