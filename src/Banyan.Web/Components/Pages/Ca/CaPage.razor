@@ -17,20 +17,20 @@
             @if (_info is not null)
             {
                 <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-                    <DescriptionsItem Label="Mode">
+                    <DescriptionsItem Title="Mode">
                         <Tag Color="@(_info.Mode == "embedded" ? "green" : "blue")">@_info.Mode</Tag>
                     </DescriptionsItem>
-                    <DescriptionsItem Label="CA NID">
+                    <DescriptionsItem Title="CA NID">
                         <Text Code Style="word-break: break-all; font-size: 11px;">@_info.CaNid</Text>
                     </DescriptionsItem>
                     @if (_info.IssuedCount.HasValue)
                     {
-                        <DescriptionsItem Label="Issued">@_info.IssuedCount</DescriptionsItem>
-                        <DescriptionsItem Label="Revoked">@_info.RevokedCount</DescriptionsItem>
+                        <DescriptionsItem Title="Issued">@_info.IssuedCount</DescriptionsItem>
+                        <DescriptionsItem Title="Revoked">@_info.RevokedCount</DescriptionsItem>
                     }
                     @if (_info.ServerAddress is not null)
                     {
-                        <DescriptionsItem Label="External address">@_info.ServerAddress</DescriptionsItem>
+                        <DescriptionsItem Title="External address">@_info.ServerAddress</DescriptionsItem>
                     }
                 </Descriptions>
             }

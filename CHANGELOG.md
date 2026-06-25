@@ -21,6 +21,8 @@ All notable changes to Banyan Brain Lite are documented here.
 
 ### Fixed
 
+- Fixed Web portal description panels using the old AntDesign `Label` parameter,
+  which caused CA, About, and several detail dialogs to return HTTP 500.
 - Restored ONNX project files that were accidentally hidden by ignore rules.
 - Pinned `MessagePack` to `3.1.7` to avoid vulnerable 3.0.x transitive restores.
 - Pinned `SQLitePCLRaw.bundle_e_sqlite3` to `3.0.3` to avoid the vulnerable bundled SQLite native library.

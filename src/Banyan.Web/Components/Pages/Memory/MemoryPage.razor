@@ -97,14 +97,14 @@
     @if (_detail is not null)
     {
         <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small" Style="margin-bottom: 16px;">
-            <DescriptionsItem Label="ID">
+            <DescriptionsItem Title="ID">
                 <Text Code>@_detail.MemoryId</Text>
             </DescriptionsItem>
-            <DescriptionsItem Label="Namespace">
+            <DescriptionsItem Title="Namespace">
                 <Tag>@_detail.Namespace</Tag>
             </DescriptionsItem>
-            <DescriptionsItem Label="Created">@_detail.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
-            <DescriptionsItem Label="Updated">@_detail.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
+            <DescriptionsItem Title="Created">@_detail.CreatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
+            <DescriptionsItem Title="Updated">@_detail.UpdatedAt.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")</DescriptionsItem>
         </Descriptions>
 
         <Card Size="small" Style="margin-bottom: 16px;">

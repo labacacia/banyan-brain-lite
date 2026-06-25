@@ -119,11 +119,11 @@
     @if (_mountTarget is not null)
     {
         <Descriptions Column="1" Size="@DescriptionsSize.Small" Style="margin-bottom: 16px;">
-            <DescriptionsItem Label="Pack"><Text Strong>@(_mountTarget.Name ?? _mountTarget.FileName)</Text></DescriptionsItem>
-            <DescriptionsItem Label="ID"><Text Code Style="font-size: 11px;">@_mountTarget.PackId</Text></DescriptionsItem>
+            <DescriptionsItem Title="Pack"><Text Strong>@(_mountTarget.Name ?? _mountTarget.FileName)</Text></DescriptionsItem>
+            <DescriptionsItem Title="ID"><Text Code Style="font-size: 11px;">@_mountTarget.PackId</Text></DescriptionsItem>
             @if (_mountTarget.Encrypted)
             {
-                <DescriptionsItem Label="Encrypted"><Tag Color="orange">Yes — passphrase required</Tag></DescriptionsItem>
+                <DescriptionsItem Title="Encrypted"><Tag Color="orange">Yes — passphrase required</Tag></DescriptionsItem>
             }
         </Descriptions>
         <Form Model="_mountForm" Layout="@FormLayout.Vertical">
@@ -152,28 +152,28 @@
     @if (_inspectMount is not null)
     {
         <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-            <DescriptionsItem Label="Name">@_inspectMount.PackName</DescriptionsItem>
-            <DescriptionsItem Label="ID"><Text Code Style="font-size: 11px;">@_inspectMount.PackId</Text></DescriptionsItem>
-            <DescriptionsItem Label="Version">@_inspectMount.PackVersion</DescriptionsItem>
-            <DescriptionsItem Label="Type"><Tag>@_inspectMount.PackType</Tag></DescriptionsItem>
-            <DescriptionsItem Label="Namespace"><Text Code>@_inspectMount.Namespace</Text></DescriptionsItem>
-            <DescriptionsItem Label="Mounted">@_inspectMount.MountedAt.ToString("yyyy-MM-dd HH:mm")</DescriptionsItem>
-            <DescriptionsItem Label="Checksum"><Text Code Style="font-size: 10px; word-break: break-all;">@_inspectMount.PackChecksum</Text></DescriptionsItem>
+            <DescriptionsItem Title="Name">@_inspectMount.PackName</DescriptionsItem>
+            <DescriptionsItem Title="ID"><Text Code Style="font-size: 11px;">@_inspectMount.PackId</Text></DescriptionsItem>
+            <DescriptionsItem Title="Version">@_inspectMount.PackVersion</DescriptionsItem>
+            <DescriptionsItem Title="Type"><Tag>@_inspectMount.PackType</Tag></DescriptionsItem>
+            <DescriptionsItem Title="Namespace"><Text Code>@_inspectMount.Namespace</Text></DescriptionsItem>
+            <DescriptionsItem Title="Mounted">@_inspectMount.MountedAt.ToString("yyyy-MM-dd HH:mm")</DescriptionsItem>
+            <DescriptionsItem Title="Checksum"><Text Code Style="font-size: 10px; word-break: break-all;">@_inspectMount.PackChecksum</Text></DescriptionsItem>
         </Descriptions>
 
         @if (_inspectManifest is not null)
         {
             <Divider Style="margin: 12px 0;" />
             <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-                <DescriptionsItem Label="Publisher">@(_inspectManifest.Publisher ?? "-")</DescriptionsItem>
-                <DescriptionsItem Label="Content types">@string.Join(", ", _inspectManifest.ContentTypes)</DescriptionsItem>
-                <DescriptionsItem Label="Target scopes">@string.Join(", ", _inspectManifest.TargetScopes)</DescriptionsItem>
-                <DescriptionsItem Label="Permissions">
+                <DescriptionsItem Title="Publisher">@(_inspectManifest.Publisher ?? "-")</DescriptionsItem>
+                <DescriptionsItem Title="Content types">@string.Join(", ", _inspectManifest.ContentTypes)</DescriptionsItem>
+                <DescriptionsItem Title="Target scopes">@string.Join(", ", _inspectManifest.TargetScopes)</DescriptionsItem>
+                <DescriptionsItem Title="Permissions">
                     recall=@_inspectManifest.Permissions.AllowRecall
                     export=@_inspectManifest.Permissions.AllowExport
                     finetune=@_inspectManifest.Permissions.AllowFinetune
                 </DescriptionsItem>
-                <DescriptionsItem Label="Checksums">@_inspectManifest.Checksums.Count entries</DescriptionsItem>
+                <DescriptionsItem Title="Checksums">@_inspectManifest.Checksums.Count entries</DescriptionsItem>
             </Descriptions>
         }
         else if (_loadingManifest)

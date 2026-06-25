@@ -13,15 +13,15 @@
     <AntDesign.Col Span="12">
         <Card Title="Node" Size="small" Style="margin-bottom: 16px;">
             <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-                <DescriptionsItem Label="Edition">
+                <DescriptionsItem Title="Edition">
                     <Tag Color="blue">Lite</Tag>
                 </DescriptionsItem>
-                <DescriptionsItem Label="Listen">@Opts.Urls</DescriptionsItem>
-                <DescriptionsItem Label="Memory DB">@Opts.MemoryDbPath</DescriptionsItem>
-                <DescriptionsItem Label="CA mode">
+                <DescriptionsItem Title="Listen">@Opts.Urls</DescriptionsItem>
+                <DescriptionsItem Title="Memory DB">@Opts.MemoryDbPath</DescriptionsItem>
+                <DescriptionsItem Title="CA mode">
                     <Tag>@Opts.CaServerType.ToString().ToLowerInvariant()</Tag>
                 </DescriptionsItem>
-                <DescriptionsItem Label="Vec index">
+                <DescriptionsItem Title="Vec index">
                     <Tag Color="@(Store.VecEnabled ? "green" : "default")">
                         @(Store.VecEnabled ? "enabled" : "disabled")
                     </Tag>
@@ -33,7 +33,7 @@
         {
             <Card Title="Local agent identity" Size="small">
                 <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-                    <DescriptionsItem Label="NID">
+                    <DescriptionsItem Title="NID">
                         <Text Code Style="font-size: 11px; word-break: break-all;">@LocalAgent.Nid</Text>
                     </DescriptionsItem>
                 </Descriptions>
@@ -46,8 +46,8 @@
             @if (_user is not null)
             {
                 <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-                    <DescriptionsItem Label="Username">@_user.Name</DescriptionsItem>
-                    <DescriptionsItem Label="Roles">
+                    <DescriptionsItem Title="Username">@_user.Name</DescriptionsItem>
+                    <DescriptionsItem Title="Roles">
                         @foreach (var role in _user.Roles)
                         {
                             <Tag Color="purple" Style="margin-right: 4px;">@role</Tag>
@@ -55,7 +55,7 @@
                     </DescriptionsItem>
                     @if (_user.ExpiresAt.HasValue)
                     {
-                        <DescriptionsItem Label="Token expires">
+                        <DescriptionsItem Title="Token expires">
                             @_user.ExpiresAt.Value.LocalDateTime.ToString("yyyy-MM-dd HH:mm:ss")
                         </DescriptionsItem>
                     }

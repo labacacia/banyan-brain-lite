@@ -44,10 +44,10 @@ else
                            Message="The private key is shown once and will not be retrievable again."
                            Style="margin-bottom: 12px;" />
                     <Descriptions Bordered Column="1" Size="@DescriptionsSize.Small">
-                        <DescriptionsItem Label="NID"><Text Code Copyable>@_issued.Nid</Text></DescriptionsItem>
-                        <DescriptionsItem Label="Serial">@_issued.Serial</DescriptionsItem>
-                        <DescriptionsItem Label="Expires">@_issued.ExpiresAt</DescriptionsItem>
-                        <DescriptionsItem Label="Private key (base64)">
+                        <DescriptionsItem Title="NID"><Text Code Copyable>@_issued.Nid</Text></DescriptionsItem>
+                        <DescriptionsItem Title="Serial">@_issued.Serial</DescriptionsItem>
+                        <DescriptionsItem Title="Expires">@_issued.ExpiresAt</DescriptionsItem>
+                        <DescriptionsItem Title="Private key (base64)">
                             <Text Code Copyable Style="word-break: break-all; font-size: 11px;">@_issued.PrivateKeyBase64</Text>
                         </DescriptionsItem>
                     </Descriptions>
