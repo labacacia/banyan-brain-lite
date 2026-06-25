@@ -2,19 +2,19 @@
 
 # 🌳 Banyan Brain Lite
 
-> 版本 1.0.0 — 给 AI agent 用的离线优先记忆节点，基于 NPS wire protocol，SQLite 存储。
+> 版本 1.1.0 — 给 AI agent 用的离线优先记忆节点，基于 NPS wire protocol，SQLite 存储。
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-green)]()
+[![Version](https://img.shields.io/badge/version-1.1.0-green)]()
 [![Status](https://img.shields.io/badge/status-stable-green)]()
 
 Banyan Brain Lite 是一个事件驱动的记忆存储。Agent 可以通过 `Remember()`、`Search()`、`Update()`、`Forget()` 与它交互。它通过 [`NPS.NWP`](https://www.nuget.org/packages/LabAcacia.NPS.NWP) 暴露 [NPS-3](https://github.com/labacacia/NPS-Release) Memory Node 表面，机器身份使用本地或远程 [NIP CA](https://github.com/labacacia/nip-ca-server) 签发的 Ed25519 NID，人类管理员身份走 OLS/OIDC。
 
-1.0.0 是 Lite 的第一个稳定版：单进程、单 SQLite 记忆库、内置 Mini-CA、Web UI、CLI、MCP Server、混合检索和 NID 鉴权都已经进入可发布状态。
+1.1.0 是 Lite 的 post-Wave GA 版本：单进程、单 SQLite 记忆库、内置 Mini-CA、Web UI、CLI、MCP Server、混合检索、NID 鉴权、observability 和签名知识包都已经进入可发布状态。
 
 ---
 
-## 1.0.0 包含什么
+## 1.1.0 包含什么
 
 - **混合检索** — BM25 / FTS5 + ONNX 向量 + RRF 融合；加载 `sqlite-vec` 时走 ANN，否则降级到内存 cosine。
 - **离线语义 embedding** — 可插拔 `IEmbedder`，支持 `bge-small-zh-v1.5` ONNX，也保留 hashing fallback。
@@ -26,13 +26,15 @@ Banyan Brain Lite 是一个事件驱动的记忆存储。Agent 可以通过 `Rem
 - **管理员身份** — OLS/OIDC admin setup、login、JWT、SQLite-backed identity stores。
 - **Web UI** — 记忆搜索/写入、agent 与 CA 管理、首次 admin setup、登录保护。
 - **MCP Server** — `banyan mcp` 提供 stdio MCP；`banyan web` 在 `/mcp` 提供 Streamable HTTP MCP。
+- **知识包** — `.banyanpack` v2 签名、通过 NID/CA 链建立 mount trust、in-pack vector recall，以及 pack version pin / upgrade / rollback。
+- **Observability 和审计** — Lite OpenTelemetry 接线、记忆操作指标、tamper-evident 本地审计记录。
 - **单二进制 CLI** — .NET tool 形式安装，覆盖 memory、CA、agent、embedder、web、MCP、NWP 命令。
 
 ## 快速开始
 
 ```bash
-# 0. 安装 Banyan Brain Lite 1.0.0
-dotnet tool install -g Banyan.Cli --version 1.0.0
+# 0. 安装 Banyan Brain Lite 1.1.0
+dotnet tool install -g Banyan.Cli --version 1.1.0
 
 # 1. 拉 embedder 模型和 sqlite-vec 扩展（约 24 MB）
 banyan embedder download
@@ -133,7 +135,8 @@ tests/
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/release/1.0.0.cn.md`](./docs/release/1.0.0.cn.md) | Banyan Brain Lite 1.0.0 发布说明和运维检查清单 |
+| [`docs/release/1.1.0.cn.md`](./docs/release/1.1.0.cn.md) | Banyan Brain Lite 1.1.0 发布说明和运维检查清单 |
+| [`docs/release/1.0.0.cn.md`](./docs/release/1.0.0.cn.md) | Banyan Brain Lite 1.0.0 历史发布说明 |
 | [`docs/recipes/mcp-server.cn.md`](./docs/recipes/mcp-server.cn.md) | Claude Desktop / Claude Code MCP 接入 |
 | [`docs/recipes/agent-memory.cn.md`](./docs/recipes/agent-memory.cn.md) | 通过 HTTP 把 agent 接到 Banyan |
 | [`docs/architecture/editions.md`](./docs/architecture/editions.md) | Lite 的公开版本边界 |

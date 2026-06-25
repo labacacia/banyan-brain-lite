@@ -2,19 +2,19 @@ English | [中文版](./README.cn.md)
 
 # 🌳 Banyan Brain Lite
 
-> Version 1.0.0 — an offline-first memory node for AI agents, built on the NPS wire protocol and backed by SQLite.
+> Version 1.1.0 — an offline-first memory node for AI agents, built on the NPS wire protocol and backed by SQLite.
 
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue)](./LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-green)]()
+[![Version](https://img.shields.io/badge/version-1.1.0-green)]()
 [![Status](https://img.shields.io/badge/status-stable-green)]()
 
 Banyan Brain Lite is an event-sourced memory store that agents can `Remember()`, `Search()`, `Update()`, and `Forget()` against. It speaks the [NPS-3](https://github.com/labacacia/NPS-Release) Memory Node surface through [`NPS.NWP`](https://www.nuget.org/packages/LabAcacia.NPS.NWP), uses Ed25519 NIDs issued by a local or remote [NIP CA](https://github.com/labacacia/nip-ca-server), and provides an OLS/OIDC operator identity track for human administrators.
 
-The 1.0.0 release is the first stable Lite cut: one process, one SQLite-backed memory store, embedded Mini-CA, web UI, CLI, MCP server, hybrid retrieval, and NID authentication.
+The 1.1.0 release is the post-Wave GA Lite cut: one process, one SQLite-backed memory store, embedded Mini-CA, web UI, CLI, MCP server, hybrid retrieval, NID authentication, observability, and signed knowledge packs.
 
 ---
 
-## What ships in 1.0.0
+## What ships in 1.1.0
 
 - **Hybrid retrieval** — BM25 / FTS5 + ONNX vector search + RRF fusion. When `sqlite-vec` is available, vector search uses ANN; otherwise it falls back to in-memory cosine.
 - **Offline semantic embeddings** — pluggable `IEmbedder`, `bge-small-zh-v1.5` ONNX support, and a hashing fallback for fully offline operation.
@@ -26,13 +26,15 @@ The 1.0.0 release is the first stable Lite cut: one process, one SQLite-backed m
 - **Operator identity** — OLS/OIDC-backed admin setup, login, JWT, and SQLite-backed identity stores.
 - **Web UI** — memory search/write UI, agent and CA operations, first-run admin setup, and login enforcement.
 - **MCP server** — stdio MCP via `banyan mcp` and Streamable HTTP MCP at `/mcp` when running `banyan web`.
+- **Knowledge packs** — `.banyanpack` v2 signing, mount trust through the NID/CA chain, in-pack vector recall, and pack version pin / upgrade / rollback.
+- **Observability and audit** — Lite OpenTelemetry wiring, memory-operation metrics, and tamper-evident local audit records.
 - **Single-binary CLI** — installable as a .NET tool with memory, CA, agent, embedder, web, MCP, and NWP commands.
 
 ## Quick start
 
 ```bash
-# 0. Install Banyan Brain Lite 1.0.0
-dotnet tool install -g Banyan.Cli --version 1.0.0
+# 0. Install Banyan Brain Lite 1.1.0
+dotnet tool install -g Banyan.Cli --version 1.1.0
 
 # 1. Pull the embedder model and sqlite-vec extension (~24 MB)
 banyan embedder download
@@ -133,7 +135,8 @@ tests/
 
 | Document | Description |
 |---|---|
-| [`docs/release/1.0.0.md`](./docs/release/1.0.0.md) | Release notes and operational checklist for Banyan Brain Lite 1.0.0 |
+| [`docs/release/1.1.0.md`](./docs/release/1.1.0.md) | Release notes and operational checklist for Banyan Brain Lite 1.1.0 |
+| [`docs/release/1.0.0.md`](./docs/release/1.0.0.md) | Historical release notes for Banyan Brain Lite 1.0.0 |
 | [`docs/client-integration-profile.md`](./docs/client-integration-profile.md) | Portable client profile for switching between Lite, Pro, and Ent |
 | [`docs/recipes/mcp-server.md`](./docs/recipes/mcp-server.md) | Claude Desktop / Claude Code MCP integration |
 | [`docs/recipes/agent-memory.md`](./docs/recipes/agent-memory.md) | Connecting an agent to Banyan through HTTP |
