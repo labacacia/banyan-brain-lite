@@ -13,6 +13,8 @@
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   <ItemGroup>
+    <!-- Official NPS conformance catalog/manifest (NodeL1 case IDs + schema). -->
+    <PackageReference Include="LabAcacia.NPS.Conformance" Version="1.0.0-alpha.14" />
     <PackageReference Include="xunit.v3" Version="1.*" />
     <PackageReference Include="xunit.runner.visualstudio" Version="3.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.*" />
