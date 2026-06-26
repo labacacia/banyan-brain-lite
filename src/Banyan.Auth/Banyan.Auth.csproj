@@ -5,14 +5,14 @@
 
     <IsPackable>true</IsPackable>
     <PackageId>Banyan.Auth</PackageId>
-    <Description>Banyan NID identity track — EmbeddedNipCa (NPS-3 §8 conformant local CA on top of NPS.NIP), SqliteNipCaStore (no Postgres dep), and RemoteNipCaClient HTTP client. Pairs with Banyan.Web/Node which mount the matching NIP-CA HTTP routes.</Description>
+    <Description>Banyan NID identity track — EmbeddedNipCa (local CA on top of NPS.NIP) and SqliteNipCaStore (no Postgres dep). Remote CA access uses the official NPS.NIP.Client.NipCaClient. Pairs with Banyan.Web/Node which mount the matching NIP-CA HTTP routes via NipCaRouter.</Description>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="LabAcacia.NPS.Core" Version="1.0.0-alpha.12" />
-    <PackageReference Include="LabAcacia.NPS.NIP" Version="1.0.0-alpha.12" />
+    <PackageReference Include="LabAcacia.NPS.Core" Version="1.0.0-alpha.14" />
+    <PackageReference Include="LabAcacia.NPS.NIP" Version="1.0.0-alpha.14" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.*" />
     <!-- Pin transitive SQLitePCLRaw above the vulnerable e_sqlite3 2.1.10 (GHSA-2m69-gcr7-jv3q / NU1903). -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />

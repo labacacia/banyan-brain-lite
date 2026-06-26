@@ -115,7 +115,7 @@ public static class MemoryNodeApp
         app.MapGet("/.schema", () => Results.Json(BanyanMemoryProvider.BuildSchema()));
 
         // NPS-3 §8 NIP CA HTTP routes — mount when this node also acts as a CA.
-        // Interoperates with the Go/Java NPS-CA references and our own RemoteNipCaClient.
+        // Interoperates with the Go/Java NPS-CA references and the official NPS.NIP.Client.NipCaClient.
         if (ca is not null)
             NipCaEndpoints.Map(app, mapHealth: false);
 

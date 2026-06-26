@@ -1,7 +1,7 @@
 // Copyright 2026 INNO LOTUS PTY LTD
 // SPDX-License-Identifier: Apache-2.0
 
-using Banyan.Auth;
+using NPS.NIP.Client;
 
 namespace Banyan.Web;
 
@@ -30,29 +30,27 @@ public static class CaServerProbe
         var normalized = uri.ToString().TrimEnd('/');
         try
         {
-            using var client = new RemoteNipCaClient(normalized, http);
-
-            // The discovery doc is the authoritative source for the CA NID (issuer) + public key;
-            // the canonical /v1/ca/cert only returns the key (no NID).
-            RemoteNipCaClient.WellKnownResponse? wellKnown = null;
-            try { wellKnown = await client.WellKnownAsync(ct); }
-            catch (Exception ex) when (ex is HttpRequestException or RemoteNipCaException) { }
-
-            if (wellKnown is not null &&
-                !string.IsNullOrWhiteSpace(wellKnown.Issuer) &&
-                !string.IsNullOrWhiteSpace(wellKnown.PublicKey))
+            var ownHttp = http is null;
+            var client = http ?? new HttpClient();
+            client.BaseAddress ??= new Uri(normalized + "/");
+            try
             {
-                return new(true, normalized, wellKnown.Issuer, wellKnown.PublicKey, wellKnown.DisplayName, "CA server is reachable.");
+                // The discovery doc (/.well-known/nps-ca) is the authoritative source for the CA NID
+                // (issuer) + public key. Served by the SDK NipCaRouter that every Banyan CA mounts.
+                var ca = new NipCaClient(client);
+                var doc = await ca.GetDiscoveryAsync(ct);
+
+                if (!string.IsNullOrWhiteSpace(doc.Issuer) && !string.IsNullOrWhiteSpace(doc.PublicKey))
+                    return new(true, normalized, doc.Issuer, doc.PublicKey, doc.DisplayName, "CA server is reachable.");
+
+                return new(false, normalized, null, null, null, "CA server did not return a CA discovery document.");
             }
-
-            // Fallback: confirm a CA key is served even without a discovery doc (NID then unknown).
-            var cert = await client.CaCertAsync(ct);
-            if (cert is not null && !string.IsNullOrWhiteSpace(cert.PublicKey))
-                return new(true, normalized, null, cert.PublicKey, null, "CA server reachable (no discovery doc; CA NID unknown).");
-
-            return new(false, normalized, null, null, null, "CA server did not return a CA certificate.");
+            finally
+            {
+                if (ownHttp) client.Dispose();
+            }
         }
-        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or RemoteNipCaException)
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or NipCaClientException)
         {
             return new(false, normalized, null, null, null, ex.Message);
         }

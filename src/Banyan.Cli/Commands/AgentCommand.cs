@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Banyan.Auth;
+using NPS.NIP.Client;
 using NPS.NIP.Crypto;
 using NSec.Cryptography;
 
@@ -49,8 +50,9 @@ internal static class AgentCommand
         string nid, serial, issuedBy, expiresAt;
         if (RemoteUrl(args) is { } remoteUrl)
         {
-            using var rc = new RemoteNipCaClient(remoteUrl);
-            var frame = await rc.RegisterAgentAsync(id, pubKey, caps);
+            using var http = NewCaHttp(remoteUrl);
+            var rc = new NipCaClient(http);
+            var frame = await rc.RegisterAgentAsync(new NipCaRegisterRequest(id, pubKey, caps));
             nid = frame.Nid; serial = frame.Serial; issuedBy = frame.IssuedBy; expiresAt = frame.ExpiresAt;
         }
         else
@@ -90,6 +92,10 @@ internal static class AgentCommand
     private static string? RemoteUrl(string[] args)
         => CommandContext.GetOption(args, "--remote")
         ?? Environment.GetEnvironmentVariable("BANYAN_CA_URL");
+
+    // The official NipCaClient issues relative requests against the HttpClient's BaseAddress.
+    private static HttpClient NewCaHttp(string baseUrl)
+        => new() { BaseAddress = new Uri(baseUrl.TrimEnd('/') + "/") };
 
     // ── list ─────────────────────────────────────────────────────────────────
 
@@ -132,8 +138,9 @@ internal static class AgentCommand
 
         if (RemoteUrl(rest) is { } remoteUrl)
         {
-            using var rc = new RemoteNipCaClient(remoteUrl);
-            var r = await rc.RevokeAsync(nid, reason);
+            using var http = NewCaHttp(remoteUrl);
+            var rc = new NipCaClient(http);
+            var r = await rc.RevokeAgentAsync(nid, reason);
             Console.WriteLine($"Revoked {r.TargetNid}");
             Console.WriteLine($"  reason:    {r.Reason}");
             Console.WriteLine($"  signed at: {r.RevokedAt}");
@@ -163,19 +170,31 @@ internal static class AgentCommand
 
         if (RemoteUrl(rest) is { } remoteUrl)
         {
-            using var rc = new RemoteNipCaClient(remoteUrl);
-            var v = await rc.VerifyAsync(nid);
-            if (v.Valid)
+            using var http = NewCaHttp(remoteUrl);
+            var rc = new NipCaClient(http);
+            try
             {
-                Console.WriteLine($"VALID  {nid}");
-                Console.WriteLine($"  serial:  {v.Serial}");
-                Console.WriteLine($"  expires: {v.ExpiresAt}");
-                return 0;
+                var v = await rc.VerifyAgentAsync(nid);
+                if (v.Valid)
+                {
+                    Console.WriteLine($"VALID  {nid}");
+                    Console.WriteLine($"  serial:  {v.Serial}");
+                    Console.WriteLine($"  expires: {v.ExpiresAt}");
+                    return 0;
+                }
+                Console.WriteLine($"INVALID {nid}");
+                Console.WriteLine($"  error: {v.ErrorCode}");
+                Console.WriteLine($"  msg:   {v.Message}");
+                return 1;
             }
-            Console.WriteLine($"INVALID {nid}");
-            Console.WriteLine($"  error: {v.ErrorCode}");
-            Console.WriteLine($"  msg:   {v.Message}");
-            return 1;
+            catch (NipCaClientException ex)
+            {
+                // The SDK client surfaces a not-found NID as a 404 exception rather than a valid=false body.
+                Console.WriteLine($"INVALID {nid}");
+                Console.WriteLine($"  error: {ex.ErrorCode}");
+                Console.WriteLine($"  msg:   {ex.Message}");
+                return 1;
+            }
         }
 
         await using var ca = await OpenCaOrFail(rest);
