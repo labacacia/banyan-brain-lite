@@ -11,8 +11,8 @@
     <ProjectReference Include="../Banyan.Core/Banyan.Core.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="LabAcacia.NPS.Core" Version="1.0.0-alpha.14" />
-    <PackageReference Include="LabAcacia.NPS.NIP" Version="1.0.0-alpha.14" />
+    <PackageReference Include="LabAcacia.NPS.Core" Version="1.0.0-alpha.15" />
+    <PackageReference Include="LabAcacia.NPS.NIP" Version="1.0.0-alpha.15" />
     <PackageReference Include="Microsoft.Data.Sqlite" Version="9.*" />
     <!-- Pin transitive SQLitePCLRaw above the vulnerable e_sqlite3 2.1.10 (GHSA-2m69-gcr7-jv3q / NU1903). -->
     <PackageReference Include="SQLitePCLRaw.bundle_e_sqlite3" Version="3.0.3" />
