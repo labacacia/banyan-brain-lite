@@ -13,4 +13,6 @@ internal sealed class McpHttpAgentContext(
     public string? CurrentAgentNid
         => httpContextAccessor.HttpContext?.Items[NidAuthenticationOptions.ContextKeyNid] as string
            ?? localAgent.Nid;
+
+    public string? DefaultWriteNamespace => null;
 }

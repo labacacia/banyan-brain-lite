@@ -17,6 +17,9 @@ public interface IIsolationEnforcer
     /// <summary>Returns a copy of <paramref name="query"/> restricted to namespaces the context may read.</summary>
     SearchQuery ApplyScope(IsolationContext ctx, SearchQuery query);
 
+    /// <summary>Returns a copy of <paramref name="query"/> restricted to namespaces the context may read.</summary>
+    MemoryListQuery ApplyScope(IsolationContext ctx, MemoryListQuery query);
+
     /// <summary>Throws if a write targets a namespace outside the context's boundary.</summary>
     void AssertNamespaceWritable(IsolationContext ctx, string targetNamespace);
 

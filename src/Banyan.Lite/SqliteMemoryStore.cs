@@ -287,6 +287,30 @@ public sealed class SqliteMemoryStore : IMemoryStore
 
     // ── Search ────────────────────────────────────────────────────────────────
 
+    public async IAsyncEnumerable<Memory> ListAsync(
+        MemoryListQuery query,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        if (query.Limit <= 0) yield break;
+
+        using var cmd = _conn.CreateCommand();
+        var nsFilter = AddNamespaceFilter(cmd, "namespace", query, leadingAnd: false);
+        var metadataFilter = AddMetadataFilter(cmd, "metadata", query.MetadataEquals, leadingAnd: nsFilter.Length > 0);
+        cmd.CommandText = $"""
+            SELECT memory_id, event_id, namespace, content, metadata, agent_nid, created_at, updated_at
+            FROM   memories_current
+            {nsFilter}
+            {metadataFilter}
+            ORDER BY updated_at DESC, memory_id ASC
+            LIMIT @limit
+            """;
+        cmd.Parameters.AddWithValue("@limit", query.Limit);
+
+        using var r = await cmd.ExecuteReaderAsync(ct);
+        while (await r.ReadAsync(ct))
+            yield return ReadMemory(r);
+    }
+
     public IAsyncEnumerable<SearchHit> SearchAsync(
         SearchQuery query, CancellationToken ct = default)
         => query.Mode switch
@@ -306,6 +330,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
 
         using var cmd = _conn.CreateCommand();
         var nsFilter = AddNamespaceFilter(cmd, "memories_fts.namespace", query);
+        var metadataFilter = AddMetadataFilter(cmd, "mc.metadata", query.MetadataEquals);
         cmd.CommandText = $"""
             SELECT mc.memory_id, mc.event_id, mc.namespace, mc.content, mc.metadata,
                    mc.agent_nid, mc.created_at, mc.updated_at,
@@ -314,6 +339,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
             JOIN   memories_current mc ON mc.memory_id = memories_fts.memory_id
             WHERE  memories_fts MATCH @q
             {nsFilter}
+            {metadataFilter}
             ORDER BY score DESC
             LIMIT @k
             """;
@@ -360,20 +386,23 @@ public sealed class SqliteMemoryStore : IMemoryStore
 
     private async Task<List<(string memId, double score)>> VecAnnTopKAsync(byte[] qbytes, SearchQuery query, CancellationToken ct)
     {
-        // vec0 doesn't support filtering on a non-indexed column inside MATCH. Instead we
-        // over-fetch from the ANN, then post-filter by namespace via a join on `embeddings`.
+        // vec0 does not support these filters inside MATCH. Over-fetch from the ANN,
+        // then post-filter by namespace/metadata through regular joins.
         int kRequested = Math.Max(query.K, 1);
-        int kFetch     = HasNamespaceFilter(query) ? Math.Min(kRequested * 8, 1024) : kRequested;
+        int kFetch     = HasPostFilter(query) ? Math.Min(kRequested * 8, 1024) : kRequested;
 
         var ranked = new List<(string memId, double score)>();
         await using var cmd = _conn.CreateCommand();
         var nsFilter = AddNamespaceFilter(cmd, "e.namespace", query);
+        var metadataFilter = AddMetadataFilter(cmd, "mc.metadata", query.MetadataEquals);
         cmd.CommandText = $"""
             SELECT v.memory_id, v.distance, e.namespace
             FROM   embeddings_vec v
             JOIN   embeddings     e ON e.memory_id = v.memory_id
+            JOIN   memories_current mc ON mc.memory_id = v.memory_id
             WHERE  v.embedding MATCH @q AND k = @k
             {nsFilter}
+            {metadataFilter}
             ORDER BY v.distance
             LIMIT @lim
             """;
@@ -397,10 +426,14 @@ public sealed class SqliteMemoryStore : IMemoryStore
     {
         var ranked = new List<(string, double)>();
         using var cmd = _conn.CreateCommand();
-        var nsFilter = AddNamespaceFilter(cmd, "namespace", query, leadingAnd: false);
+        var nsFilter = AddNamespaceFilter(cmd, "e.namespace", query, leadingAnd: false);
+        var metadataFilter = AddMetadataFilter(cmd, "mc.metadata", query.MetadataEquals, leadingAnd: nsFilter.Length > 0);
         cmd.CommandText = $"""
-            SELECT memory_id, vector FROM embeddings
+            SELECT e.memory_id, e.vector
+            FROM   embeddings e
+            JOIN   memories_current mc ON mc.memory_id = e.memory_id
             {nsFilter}
+            {metadataFilter}
             """;
 
         using var r = cmd.ExecuteReader();
@@ -429,7 +462,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
         var finalK = query.K > 0 ? query.K : _retrieval.FinalTopK;
         var lexicalPool = Math.Max(_retrieval.LexicalTopK, finalK);
         var vectorPool = Math.Max(_retrieval.VectorTopK, finalK);
-        var deepQuery = new SearchQuery(query.Text, K: lexicalPool, query.Namespace, SearchMode.Lexical, query.Namespaces);
+        var deepQuery = query with { K = lexicalPool, Mode = SearchMode.Lexical };
 
         var lexHits = new Dictionary<string, (int rank, SearchHit hit)>();
         var lexRank = 0;
@@ -439,7 +472,7 @@ public sealed class SqliteMemoryStore : IMemoryStore
             lexHits[h.Memory.Id.ToString()] = (lexRank, h);
         }
 
-        var vecQuery = new SearchQuery(query.Text, K: vectorPool, query.Namespace, SearchMode.Vector, query.Namespaces);
+        var vecQuery = query with { K = vectorPool, Mode = SearchMode.Vector };
         var vecHits = new Dictionary<string, (int rank, SearchHit hit)>();
         var vecRank = 0;
         await foreach (var h in VectorSearchAsync(vecQuery, ct))
@@ -467,7 +500,16 @@ public sealed class SqliteMemoryStore : IMemoryStore
             fused.Add((baseHit, score, lr, vr));
         }
 
-        foreach (var (baseHit, score, lr, vr) in fused.OrderByDescending(t => t.score).Take(finalK))
+        // Shared memory RRF order: fused score desc, best contributing rank asc,
+        // updated_at desc, then memory_id asc. Keep Lite, Pro-PG, and Pro pool merge aligned.
+        var ordered = fused
+            .OrderByDescending(t => t.score)
+            .ThenBy(t => BestRank(t.lex, t.vec))
+            .ThenByDescending(t => t.baseHit.Memory.UpdatedAt)
+            .ThenBy(t => t.baseHit.Memory.Id.ToString(), StringComparer.Ordinal)
+            .Take(finalK);
+
+        foreach (var (baseHit, score, lr, vr) in ordered)
             yield return new SearchHit(baseHit.Memory, score, vr, lr);
     }
 
@@ -532,8 +574,9 @@ public sealed class SqliteMemoryStore : IMemoryStore
             : string.Join(" ", tokens.Select(t => $"\"{t.Replace("\"", "\"\"")}\"*"));
     }
 
-    private static bool HasNamespaceFilter(SearchQuery query)
-        => EffectiveNamespaces(query) is { Count: > 0 };
+    private static bool HasPostFilter(SearchQuery query)
+        => EffectiveNamespaces(query) is { Count: > 0 }
+           || EffectiveMetadataEquals(query.MetadataEquals) is { Count: > 0 };
 
     private static IReadOnlyList<string>? EffectiveNamespaces(SearchQuery query)
     {
@@ -545,6 +588,58 @@ public sealed class SqliteMemoryStore : IMemoryStore
         return string.IsNullOrWhiteSpace(query.Namespace)
             ? null
             : [query.Namespace];
+    }
+
+    private static IReadOnlyList<string>? EffectiveNamespaces(MemoryListQuery query)
+    {
+        if (query.Namespaces is { Count: > 0 })
+            return query.Namespaces.Where(ns => !string.IsNullOrWhiteSpace(ns))
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+
+        return string.IsNullOrWhiteSpace(query.Namespace)
+            ? null
+            : [query.Namespace];
+    }
+
+    private static IReadOnlyDictionary<string, string>? EffectiveMetadataEquals(
+        IReadOnlyDictionary<string, string>? metadataEquals)
+    {
+        if (metadataEquals is not { Count: > 0 })
+            return null;
+
+        var filtered = metadataEquals
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Key) && kv.Value is not null)
+            .ToDictionary(kv => kv.Key, kv => kv.Value, StringComparer.Ordinal);
+        return filtered.Count == 0 ? null : filtered;
+    }
+
+    private static string AddNamespaceFilter(
+        SqliteCommand cmd,
+        string column,
+        MemoryListQuery query,
+        bool leadingAnd = true)
+    {
+        var namespaces = EffectiveNamespaces(query);
+        if (namespaces is not { Count: > 0 })
+            return string.Empty;
+
+        var prefix = leadingAnd ? "AND " : "WHERE ";
+        if (namespaces.Count == 1)
+        {
+            cmd.Parameters.AddWithValue("@ns", namespaces[0]);
+            return $"{prefix}{column} = @ns";
+        }
+
+        var names = new List<string>(namespaces.Count);
+        for (var i = 0; i < namespaces.Count; i++)
+        {
+            var name = $"@ns{i}";
+            names.Add(name);
+            cmd.Parameters.AddWithValue(name, namespaces[i]);
+        }
+
+        return $"{prefix}{column} IN ({string.Join(", ", names)})";
     }
 
     private static string AddNamespaceFilter(
@@ -574,6 +669,35 @@ public sealed class SqliteMemoryStore : IMemoryStore
 
         return $"{prefix}{column} IN ({string.Join(", ", names)})";
     }
+
+    private static string AddMetadataFilter(
+        SqliteCommand cmd,
+        string column,
+        IReadOnlyDictionary<string, string>? metadataEquals,
+        bool leadingAnd = true)
+    {
+        var filters = EffectiveMetadataEquals(metadataEquals);
+        if (filters is not { Count: > 0 })
+            return string.Empty;
+
+        var clauses = new List<string>(filters.Count);
+        var i = 0;
+        foreach (var (key, value) in filters)
+        {
+            var keyParam = $"@meta_key{i}";
+            var valueParam = $"@meta_value{i}";
+            cmd.Parameters.AddWithValue(keyParam, key);
+            cmd.Parameters.AddWithValue(valueParam, value);
+            clauses.Add($"EXISTS (SELECT 1 FROM json_each({column}) WHERE key = {keyParam} AND type = 'text' AND value = {valueParam})");
+            i++;
+        }
+
+        var prefix = leadingAnd ? "AND " : "WHERE ";
+        return $"{prefix}{string.Join(" AND ", clauses)}";
+    }
+
+    private static int BestRank(int? lex, int? vec)
+        => Math.Min(lex ?? int.MaxValue, vec ?? int.MaxValue);
 
     private static byte[] FloatsToBytes(float[] v)
     {

@@ -85,8 +85,21 @@ public class ScopedMemoryStoreTests
     {
         var inner = new FakeStore();
         var store = Scoped(inner, Ctx(ns: "alice", pools: new[] { "pool-a" }));
-        await foreach (var _ in store.SearchAsync(new SearchQuery("q"))) { }
+        var metadata = new Dictionary<string, string> { ["source"] = "agent" };
+        await foreach (var _ in store.SearchAsync(new SearchQuery("q", MetadataEquals: metadata))) { }
         Assert.Equal(new[] { "alice", "pool-a" }, inner.LastSearch!.Namespaces);
+        Assert.Equal(metadata, inner.LastSearch.MetadataEquals);
+    }
+
+    [Fact]
+    public async Task List_AppliesScope_PassesAllowedNamespacesToInner()
+    {
+        var inner = new FakeStore();
+        var store = Scoped(inner, Ctx(ns: "alice", pools: new[] { "pool-a" }));
+        var metadata = new Dictionary<string, string> { ["source"] = "agent" };
+        await foreach (var _ in store.ListAsync(new MemoryListQuery(MetadataEquals: metadata))) { }
+        Assert.Equal(new[] { "alice", "pool-a" }, inner.LastList!.Namespaces);
+        Assert.Equal(metadata, inner.LastList.MetadataEquals);
     }
 
     [Fact]
@@ -103,6 +116,7 @@ public class ScopedMemoryStoreTests
         private readonly Dictionary<MemoryId, Memory> _mem = new();
         public int Writes;
         public SearchQuery? LastSearch;
+        public MemoryListQuery? LastList;
 
         public MemoryId Seed(string ns, string content)
         {
@@ -135,6 +149,14 @@ public class ScopedMemoryStoreTests
             SearchQuery query, [EnumeratorCancellation] CancellationToken ct = default)
         {
             LastSearch = query;
+            await Task.CompletedTask;
+            yield break;
+        }
+
+        public async IAsyncEnumerable<Memory> ListAsync(
+            MemoryListQuery query, [EnumeratorCancellation] CancellationToken ct = default)
+        {
+            LastList = query;
             await Task.CompletedTask;
             yield break;
         }

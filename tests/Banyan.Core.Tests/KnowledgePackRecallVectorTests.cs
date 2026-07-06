@@ -44,6 +44,8 @@ public sealed class KnowledgePackRecallVectorTests : IAsyncLifetime
             => Task.FromResult<IReadOnlyList<Memory>>([]);
         public async IAsyncEnumerable<SearchHit> SearchAsync(SearchQuery q, [EnumeratorCancellation] CancellationToken ct = default)
         { await Task.CompletedTask; yield break; }
+        public async IAsyncEnumerable<Memory> ListAsync(MemoryListQuery q, [EnumeratorCancellation] CancellationToken ct = default)
+        { await Task.CompletedTask; yield break; }
         public async IAsyncEnumerable<MemoryEvent> TraceAsync(MemoryId id, [EnumeratorCancellation] CancellationToken ct = default)
         { await Task.CompletedTask; yield break; }
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;

@@ -72,6 +72,19 @@ public class HybridRetrieverTests
     }
 
     [Fact]
+    public void Rrf_TiesById()
+    {
+        var fused = DefaultHybridRetriever.ReciprocalRankFuse(
+            new IReadOnlyList<Candidate>[]
+            {
+                new[] { C("b", "n") },
+                new[] { C("a", "p") },
+            }, k: 60);
+
+        Assert.Equal(new[] { "a", "b" }, fused.Select(r => r.Id).ToArray());
+    }
+
+    [Fact]
     public void Rrf_RanksMoreAgreedItemHigher()
     {
         var fused = DefaultHybridRetriever.ReciprocalRankFuse(

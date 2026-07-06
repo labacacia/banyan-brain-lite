@@ -90,10 +90,47 @@ public sealed class BanyanMemoryProviderTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Query_NoFilter_ReturnsEmpty()
+    public async Task Query_NoFilter_ReturnsLatestRows()
     {
-        var result = await _provider.QueryAsync(Frame(filter: null), _opts.Schema, _opts, default);
-        Assert.Empty(result.Rows);
+        var result = await _provider.QueryAsync(Frame(filter: null, limit: 2), _opts.Schema, _opts, default);
+        Assert.Equal(2, result.Rows.Count);
+        Assert.All(result.Rows, r => Assert.True(r.ContainsKey("memory_id")));
+    }
+
+    [Fact]
+    public async Task Query_MetadataFilter_ReturnsMatchingLatestRows()
+    {
+        using var agentMeta = JsonDocument.Parse("""{"source":"agent"}""");
+        using var browserMeta = JsonDocument.Parse("""{"source":"browser"}""");
+        await _store.WriteAsync(new WriteRequest("metadata agent row", Metadata: agentMeta));
+        await _store.WriteAsync(new WriteRequest("metadata browser row", Metadata: browserMeta));
+
+        var result = await _provider.QueryAsync(
+            Frame(JsonObj("""{"metadata":{"source":"agent"}}"""), limit: 10),
+            _opts.Schema,
+            _opts,
+            default);
+
+        Assert.Single(result.Rows);
+        Assert.Equal("metadata agent row", result.Rows[0]["content"]);
+    }
+
+    [Fact]
+    public async Task Query_TextAndMetadataFilter_FindsMatchingRows()
+    {
+        using var agentMeta = JsonDocument.Parse("""{"source":"agent"}""");
+        using var browserMeta = JsonDocument.Parse("""{"source":"browser"}""");
+        await _store.WriteAsync(new WriteRequest("metadata shared topic", Metadata: agentMeta));
+        await _store.WriteAsync(new WriteRequest("metadata shared topic", Metadata: browserMeta));
+
+        var result = await _provider.QueryAsync(
+            Frame(JsonObj("""{"text":"metadata shared","metadata":{"source":"agent"}}"""), limit: 10),
+            _opts.Schema,
+            _opts,
+            default);
+
+        Assert.Single(result.Rows);
+        Assert.Equal("metadata shared topic", result.Rows[0]["content"]);
     }
 
     [Fact]
@@ -124,9 +161,25 @@ public sealed class BanyanMemoryProviderTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Count_NoFilter_ReturnsZero()
+    public async Task Count_MetadataFilter_ReturnsVisibleRows()
+    {
+        using var agentMeta = JsonDocument.Parse("""{"source":"agent"}""");
+        using var browserMeta = JsonDocument.Parse("""{"source":"browser"}""");
+        await _store.WriteAsync(new WriteRequest("metadata count agent", Metadata: agentMeta));
+        await _store.WriteAsync(new WriteRequest("metadata count browser", Metadata: browserMeta));
+
+        var n = await _provider.CountAsync(
+            Frame(JsonObj("""{"metadata":{"source":"agent"}}""")),
+            _opts.Schema,
+            default);
+
+        Assert.Equal(1, n);
+    }
+
+    [Fact]
+    public async Task Count_NoFilter_ReturnsVisibleRows()
     {
         var n = await _provider.CountAsync(Frame(filter: null), _opts.Schema, default);
-        Assert.Equal(0, n);
+        Assert.Equal(5, n);
     }
 }

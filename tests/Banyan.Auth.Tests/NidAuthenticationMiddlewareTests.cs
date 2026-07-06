@@ -80,6 +80,11 @@ public sealed class NidAuthenticationMiddlewareTests : IAsyncLifetime
             {
                 nid = ctx.Items[NidAuthenticationOptions.ContextKeyNid] as string ?? "(none)",
             }));
+        _app.MapPost("/mcp", (HttpContext ctx) =>
+            Results.Ok(new
+            {
+                nid = ctx.Items[NidAuthenticationOptions.ContextKeyNid] as string ?? "(none)",
+            }));
         // Mount the CA endpoints so we can issue a real frame in tests below.
         NipCaEndpoints.Map(_app);
 
@@ -137,6 +142,16 @@ public sealed class NidAuthenticationMiddlewareTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task AnonymousAllowed_McpPostWithoutAuth_StillAllowed()
+    {
+        _authOpts.Mode = NidAuthMode.AnonymousAllowed;
+        var resp = await _http.PostAsync("/mcp", new StringContent("{}"));
+        Assert.Equal(HttpStatusCode.OK, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("(none)", body.GetProperty("nid").GetString());
+    }
+
+    [Fact]
     public async Task AnonymousAllowed_InvalidHeader_PassesAsAnon()
     {
         _authOpts.Mode = NidAuthMode.AnonymousAllowed;
@@ -168,6 +183,16 @@ public sealed class NidAuthenticationMiddlewareTests : IAsyncLifetime
         var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
         Assert.Equal("NIP-AUTH-REQUIRED", body.GetProperty("error_code").GetString());
         Assert.Equal("NID realm=\"banyan\"", resp.Headers.WwwAuthenticate.ToString());
+    }
+
+    [Fact]
+    public async Task WritesRequired_McpPostWithoutAuth_Returns401()
+    {
+        _authOpts.Mode = NidAuthMode.WritesRequired;
+        var resp = await _http.PostAsync("/mcp", new StringContent("{}"));
+        Assert.Equal(HttpStatusCode.Unauthorized, resp.StatusCode);
+        var body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+        Assert.Equal("NIP-AUTH-REQUIRED", body.GetProperty("error_code").GetString());
     }
 
     [Fact]

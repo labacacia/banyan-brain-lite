@@ -56,6 +56,36 @@ public sealed class PoolAwareMemoryStore(
         }
     }
 
+    public async IAsyncEnumerable<Memory> ListAsync(
+        MemoryListQuery query,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        var namespaces = new List<string>();
+        if (!string.IsNullOrWhiteSpace(query.Namespace))
+            namespaces.Add(query.Namespace);
+        if (query.Namespaces is { Count: > 0 })
+            namespaces.AddRange(query.Namespaces.Where(ns => !string.IsNullOrWhiteSpace(ns)));
+
+        var bindings = await pools.ListBindingsAsync(agentId, ct);
+        namespaces.AddRange(bindings.Select(b => LiteMemoryPool.Namespace(b.PoolId)));
+        namespaces = namespaces.Distinct(StringComparer.Ordinal).ToList();
+
+        if (namespaces.Count == 0)
+        {
+            await foreach (var memory in inner.ListAsync(query, ct))
+                yield return memory;
+            yield break;
+        }
+
+        var seen = new HashSet<MemoryId>();
+        var fanoutQuery = query with { Namespace = null, Namespaces = namespaces };
+        await foreach (var memory in inner.ListAsync(fanoutQuery, ct))
+        {
+            if (seen.Add(memory.Id))
+                yield return memory;
+        }
+    }
+
     public IAsyncEnumerable<MemoryEvent> TraceAsync(MemoryId id, CancellationToken ct = default)
         => inner.TraceAsync(id, ct);
 

@@ -31,6 +31,18 @@ public class DomainTests
         Assert.Equal(SearchMode.Hybrid, q.Mode);
         Assert.Equal(10, q.K);
         Assert.Null(q.Namespace);
+        Assert.Null(q.Namespaces);
+        Assert.Null(q.MetadataEquals);
+    }
+
+    [Fact]
+    public void MemoryListQuery_Defaults_MatchSearchLimit()
+    {
+        var q = new MemoryListQuery();
+        Assert.Equal(10, q.Limit);
+        Assert.Null(q.Namespace);
+        Assert.Null(q.Namespaces);
+        Assert.Null(q.MetadataEquals);
     }
 
     [Fact]

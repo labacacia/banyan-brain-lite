@@ -23,7 +23,15 @@ public sealed record SearchQuery(
     int K = 10,
     string? Namespace = null,
     SearchMode Mode = SearchMode.Hybrid,
-    IReadOnlyList<string>? Namespaces = null
+    IReadOnlyList<string>? Namespaces = null,
+    IReadOnlyDictionary<string, string>? MetadataEquals = null
+);
+
+public sealed record MemoryListQuery(
+    int Limit = 10,
+    string? Namespace = null,
+    IReadOnlyList<string>? Namespaces = null,
+    IReadOnlyDictionary<string, string>? MetadataEquals = null
 );
 
 public enum SearchMode { Hybrid, Vector, Lexical }

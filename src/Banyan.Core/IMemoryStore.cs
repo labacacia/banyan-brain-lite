@@ -11,5 +11,6 @@ public interface IMemoryStore : IAsyncDisposable
     Task<Memory?> GetAsync(MemoryId id, CancellationToken ct = default);
     Task<IReadOnlyList<Memory>> RecallAsync(IEnumerable<MemoryId> ids, CancellationToken ct = default);
     IAsyncEnumerable<SearchHit> SearchAsync(SearchQuery query, CancellationToken ct = default);
+    IAsyncEnumerable<Memory> ListAsync(MemoryListQuery query, CancellationToken ct = default);
     IAsyncEnumerable<MemoryEvent> TraceAsync(MemoryId id, CancellationToken ct = default);
 }

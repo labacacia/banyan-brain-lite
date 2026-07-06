@@ -70,6 +70,22 @@ public class IsolationEnforcerTests
     }
 
     [Fact]
+    public void ApplyScope_ListNoNamespace_DefaultsToReadableNamespaces()
+    {
+        var ctx = Ctx(ns: "alice", pools: new[] { "pool-a" });
+        var scoped = Enforcer.ApplyScope(ctx, new MemoryListQuery());
+        Assert.Equal(new[] { "alice", "pool-a" }, scoped.Namespaces);
+    }
+
+    [Fact]
+    public void ApplyScope_ListRequestedOutsideBoundary_Throws()
+    {
+        var ctx = Ctx(ns: "alice");
+        Assert.Throws<IsolationDeniedException>(
+            () => Enforcer.ApplyScope(ctx, new MemoryListQuery(Namespace: "bob")));
+    }
+
+    [Fact]
     public void AssertNamespaceWritable_OwnNamespace_Ok()
     {
         Enforcer.AssertNamespaceWritable(Ctx(ns: "alice"), "alice");

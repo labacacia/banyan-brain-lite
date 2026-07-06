@@ -18,13 +18,15 @@ namespace Banyan.Node;
 /// Filter DSL we accept (subset of NWP's filter expressions; PG/MSSQL translator isn't usable here):
 ///   <c>{"text": "search terms"}</c>             — BM25 lexical when no <see cref="QueryFrame.VectorSearch"/>
 ///   <c>{"namespace": "default"}</c>             — restrict to a namespace
-///   <c>{"text": "...", "namespace": "..."}</c>  — combine
+///   <c>{"text": "...", "namespace": "..."}</c>  - combine
+///   <c>{"metadata": {"source": "agent"}}</c>    - top-level string metadata equality
 ///
 /// When <see cref="QueryFrame.VectorSearch"/>.Vector is non-null, vector search runs (with optional
 /// <c>text</c> filter folded into a hybrid). When neither is supplied we return the most recent rows.
 /// </summary>
 public sealed class BanyanMemoryProvider(SqliteMemoryStore store) : IMemoryNodeProvider
 {
+    private const int CountLimit = 1000;
     public static MemoryNodeSchema BuildSchema() => new()
     {
         TableName  = "memories",
@@ -50,7 +52,7 @@ public sealed class BanyanMemoryProvider(SqliteMemoryStore store) : IMemoryNodeP
         QueryFrame frame, MemoryNodeSchema schema, MemoryNodeOptions options, CancellationToken ct)
     {
         var rows = new List<IReadOnlyDictionary<string, object?>>();
-        var (text, ns) = ParseFilter(frame.Filter);
+        var (text, ns, metadataEquals) = ParseFilter(frame.Filter);
         var vec        = frame.VectorSearch;
 
         int limit = (int)Math.Min(frame.Limit > 0 ? frame.Limit : options.DefaultLimit, options.MaxLimit);
@@ -61,17 +63,26 @@ public sealed class BanyanMemoryProvider(SqliteMemoryStore store) : IMemoryNodeP
             // vectors; we treat the vector as the query and run pure vector + optional text filter via hybrid.
             // Without a runtime embedder rebind, fall back to a text-driven hybrid when text is set.
             if (!string.IsNullOrWhiteSpace(text))
-                await CollectAsync(store.SearchAsync(new SearchQuery(text!, K: limit, Namespace: ns, Mode: SearchMode.Hybrid), ct), rows, frame.Fields);
+                await CollectAsync(
+                    store.SearchAsync(new SearchQuery(text!, K: limit, Namespace: ns, Mode: SearchMode.Hybrid, MetadataEquals: metadataEquals), ct),
+                    rows,
+                    frame.Fields);
             else
                 await CollectAsync(VectorByExternalAsync(vec.Vector, limit, ns, ct),                                                                       rows, frame.Fields);
         }
         else if (!string.IsNullOrWhiteSpace(text))
         {
-            await CollectAsync(store.SearchAsync(new SearchQuery(text!, K: limit, Namespace: ns, Mode: SearchMode.Hybrid), ct), rows, frame.Fields);
+            await CollectAsync(
+                store.SearchAsync(new SearchQuery(text!, K: limit, Namespace: ns, Mode: SearchMode.Hybrid, MetadataEquals: metadataEquals), ct),
+                rows,
+                frame.Fields);
         }
         else
         {
-            await CollectAsync(LatestAsync(ns, limit, ct), rows, frame.Fields);
+            await CollectAsync(
+                LatestAsync(ns, limit, metadataEquals, ct),
+                rows,
+                frame.Fields);
         }
 
         return new MemoryNodeQueryResult { Rows = rows, NextCursor = "" };
@@ -79,13 +90,18 @@ public sealed class BanyanMemoryProvider(SqliteMemoryStore store) : IMemoryNodeP
 
     public async Task<long> CountAsync(QueryFrame frame, MemoryNodeSchema schema, CancellationToken ct)
     {
-        // Bound by the configured DefaultLimit cap — we don't enumerate the whole table for cheap counts.
-        var (text, ns) = ParseFilter(frame.Filter);
-        if (string.IsNullOrEmpty(text) && frame.VectorSearch is null) return 0;
+        // CountAsync does not receive MemoryNodeOptions, so cheap counts use an internal cap.
+        var (text, ns, metadataEquals) = ParseFilter(frame.Filter);
+        if (string.IsNullOrEmpty(text) && frame.VectorSearch is null)
+        {
+            long count = 0;
+            await foreach (var _ in store.ListAsync(new MemoryListQuery(CountLimit, Namespace: ns, MetadataEquals: metadataEquals), ct)) count++;
+            return count;
+        }
 
         var query = string.IsNullOrEmpty(text)
             ? null
-            : new SearchQuery(text!, K: 1000, Namespace: ns, Mode: SearchMode.Lexical);
+            : new SearchQuery(text!, K: CountLimit, Namespace: ns, Mode: SearchMode.Lexical, MetadataEquals: metadataEquals);
         if (query is null) return 0;
 
         long n = 0;
@@ -118,13 +134,11 @@ public sealed class BanyanMemoryProvider(SqliteMemoryStore store) : IMemoryNodeP
     }
 
     private async IAsyncEnumerable<SearchHit> LatestAsync(
-        string? ns, int k, [EnumeratorCancellation] CancellationToken ct)
+        string? ns, int k, IReadOnlyDictionary<string, string>? metadataEquals,
+        [EnumeratorCancellation] CancellationToken ct)
     {
-        // The store doesn't expose a "list latest" method publicly; emulate via the SearchAsync API
-        // with a wildcard match. FTS5 needs a non-empty match; pass "*" which BM25 treats as no-op.
-        // Falls through to zero hits — clients should always supply text or vector.
-        await Task.CompletedTask;
-        yield break;
+        await foreach (var memory in store.ListAsync(new MemoryListQuery(k, Namespace: ns, MetadataEquals: metadataEquals), ct))
+            yield return new SearchHit(memory, 0, null, null);
     }
 
     private static async Task CollectAsync(
@@ -155,11 +169,22 @@ public sealed class BanyanMemoryProvider(SqliteMemoryStore store) : IMemoryNodeP
             : all;
     }
 
-    private static (string? text, string? ns) ParseFilter(JsonElement? filter)
+    private static (string? text, string? ns, IReadOnlyDictionary<string, string>? metadataEquals) ParseFilter(JsonElement? filter)
     {
-        if (filter is not { ValueKind: JsonValueKind.Object } obj) return (null, null);
+        if (filter is not { ValueKind: JsonValueKind.Object } obj) return (null, null, null);
         string? text = obj.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String ? t.GetString() : null;
         string? ns   = obj.TryGetProperty("namespace", out var n) && n.ValueKind == JsonValueKind.String ? n.GetString() : null;
-        return (text, ns);
+        return (text, ns, ParseMetadataEquals(obj));
+    }
+
+    private static IReadOnlyDictionary<string, string>? ParseMetadataEquals(JsonElement obj)
+    {
+        if (!obj.TryGetProperty("metadata", out var metadata) || metadata.ValueKind != JsonValueKind.Object)
+            return null;
+
+        var filters = metadata.EnumerateObject()
+            .Where(p => !string.IsNullOrWhiteSpace(p.Name) && p.Value.ValueKind == JsonValueKind.String)
+            .ToDictionary(p => p.Name, p => p.Value.GetString()!, StringComparer.Ordinal);
+        return filters.Count == 0 ? null : filters;
     }
 }

@@ -73,6 +73,7 @@ public sealed class DefaultHybridRetriever : IHybridRetriever
             }
         }
 
+        // Knowledge RRF has no memory timestamp tie-break; equal fused scores sort by id asc.
         return order
             .Select(id => new RankedResult(id, content[id], scores[id], sources[id], meta[id]))
             .OrderByDescending(r => r.Score)

@@ -16,6 +16,7 @@
     <Project Path="tests/Banyan.Auth.Tests/Banyan.Auth.Tests.csproj" />
     <Project Path="tests/Banyan.Core.Tests/Banyan.Core.Tests.csproj" />
     <Project Path="tests/Banyan.Identity.Tests/Banyan.Identity.Tests.csproj" />
+    <Project Path="tests/Banyan.Mcp.Tests/Banyan.Mcp.Tests.csproj" />
     <Project Path="tests/Banyan.Node.Tests/Banyan.Node.Tests.csproj" />
     <Project Path="tests/Banyan.Lite.Tests/Banyan.Lite.Tests.csproj" />
     <Project Path="tests/Banyan.Observability.Tests/Banyan.Observability.Tests.csproj" />

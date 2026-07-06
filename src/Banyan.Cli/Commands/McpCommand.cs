@@ -54,6 +54,7 @@ internal static class McpCommand
 
         builder.Services
             .AddSingleton<IMemoryStore>(store)
+            .AddSingleton<IBanyanMcpMemoryStoreAccessor, StaticBanyanMcpMemoryStoreAccessor>()
             .AddSingleton(new McpDefaults(defaultNs))
             .AddSingleton<IBanyanMcpAgentContext, NullBanyanMcpAgentContext>()
             .AddMcpServer()

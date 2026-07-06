@@ -128,7 +128,9 @@ public sealed class NidAuthenticationMiddleware(
     private static bool IsApiRoute(string path) =>
         path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase) ||
         path.StartsWith("/v1/",  StringComparison.OrdinalIgnoreCase) ||
-        path.StartsWith("/v2/",  StringComparison.OrdinalIgnoreCase);
+        path.StartsWith("/v2/",  StringComparison.OrdinalIgnoreCase) ||
+        path.Equals("/mcp", StringComparison.OrdinalIgnoreCase) ||
+        path.StartsWith("/mcp/", StringComparison.OrdinalIgnoreCase);
 
     private static bool IsPublicPath(string path, IReadOnlyList<string> publicPaths) =>
         publicPaths.Any(p => path.Equals(p, StringComparison.OrdinalIgnoreCase));

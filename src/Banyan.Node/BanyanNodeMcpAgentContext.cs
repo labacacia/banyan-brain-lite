@@ -15,4 +15,6 @@ internal sealed class BanyanNodeMcpAgentContext(IHttpContextAccessor httpContext
 {
     public string? CurrentAgentNid
         => httpContextAccessor.HttpContext?.Items[NidAuthenticationOptions.ContextKeyNid] as string;
+
+    public string? DefaultWriteNamespace => null;
 }

@@ -74,6 +74,16 @@ public sealed class ScopedMemoryStore : IMemoryStore
             yield return hit;
     }
 
+    public async IAsyncEnumerable<Memory> ListAsync(
+        MemoryListQuery query,
+        [EnumeratorCancellation] CancellationToken ct = default)
+    {
+        _enforcer.RequireCapability(_ctx, IsolationCapabilities.MemoryRead);
+        var scoped = _enforcer.ApplyScope(_ctx, query);
+        await foreach (var memory in _inner.ListAsync(scoped, ct).ConfigureAwait(false))
+            yield return memory;
+    }
+
     public async IAsyncEnumerable<MemoryEvent> TraceAsync(
         MemoryId id,
         [EnumeratorCancellation] CancellationToken ct = default)

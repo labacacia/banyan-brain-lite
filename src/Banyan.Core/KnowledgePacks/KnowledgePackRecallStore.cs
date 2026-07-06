@@ -52,6 +52,9 @@ public sealed class KnowledgePackRecallStore(
         }
     }
 
+    public IAsyncEnumerable<Memory> ListAsync(MemoryListQuery query, CancellationToken ct = default)
+        => inner.ListAsync(query, ct);
+
     public IAsyncEnumerable<MemoryEvent> TraceAsync(MemoryId id, CancellationToken ct = default)
         => inner.TraceAsync(id, ct);
 

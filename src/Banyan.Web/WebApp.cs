@@ -241,6 +241,7 @@ public static class WebApp
         builder.Services.AddCascadingAuthenticationState();
         builder.Services.AddHttpContextAccessor();
         builder.Services
+            .AddSingleton<IBanyanMcpMemoryStoreAccessor, StaticBanyanMcpMemoryStoreAccessor>()
             .AddSingleton(new McpDefaults("default"))
             .AddSingleton<IBanyanMcpAgentContext, McpHttpAgentContext>()
             .AddMcpServer()

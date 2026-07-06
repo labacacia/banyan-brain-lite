@@ -1,6 +1,7 @@
 // Copyright 2026 INNO LOTUS PTY LTD
 // SPDX-License-Identifier: Apache-2.0
 
+using System.Text.Json;
 using Banyan.Core;
 using Banyan.Lite;
 using Xunit;
@@ -70,7 +71,54 @@ public sealed class SqliteMemoryStoreTests : IAsyncLifetime
         Assert.Contains(result, m => m.Id == id2);
     }
 
-    // ── Search ────────────────────────────────────────────────────────────────
+    // List
+
+    [Fact]
+    public async Task List_ReturnsNewestFirst()
+    {
+        await _store.WriteAsync(new WriteRequest("older memory"));
+        await Task.Delay(10);
+        await _store.WriteAsync(new WriteRequest("newer memory"));
+
+        var memories = await Collect(_store.ListAsync(new MemoryListQuery(Limit: 2)));
+
+        Assert.Equal(2, memories.Count);
+        Assert.Equal("newer memory", memories[0].Content);
+        Assert.Equal("older memory", memories[1].Content);
+    }
+
+    [Fact]
+    public async Task List_RespectsNamespaceAndLimit()
+    {
+        await _store.WriteAsync(new WriteRequest("alpha one", Namespace: "alpha"));
+        await _store.WriteAsync(new WriteRequest("beta one", Namespace: "beta"));
+        await Task.Delay(10);
+        await _store.WriteAsync(new WriteRequest("alpha two", Namespace: "alpha"));
+
+        var memories = await Collect(_store.ListAsync(new MemoryListQuery(Limit: 1, Namespace: "alpha")));
+
+        Assert.Single(memories);
+        Assert.Equal("alpha", memories[0].Namespace);
+        Assert.Equal("alpha two", memories[0].Content);
+    }
+
+    [Fact]
+    public async Task List_RespectsMetadataEquals_Filter()
+    {
+        using var stringMeta = JsonDocument.Parse("""{"source":"1","kind":"note"}""");
+        using var numericMeta = JsonDocument.Parse("""{"source":1,"kind":"note"}""");
+        await _store.WriteAsync(new WriteRequest("string metadata", Metadata: stringMeta));
+        await _store.WriteAsync(new WriteRequest("numeric metadata", Metadata: numericMeta));
+
+        var memories = await Collect(_store.ListAsync(new MemoryListQuery(
+            Limit: 10,
+            MetadataEquals: new Dictionary<string, string> { ["source"] = "1" })));
+
+        Assert.Single(memories);
+        Assert.Equal("string metadata", memories[0].Content);
+    }
+
+    // Search
 
     [Fact]
     public async Task Search_SingleToken_ReturnsMatchingMemories()
@@ -121,6 +169,28 @@ public sealed class SqliteMemoryStoreTests : IAsyncLifetime
 
         Assert.Equal(2, hits.Count);
         Assert.All(hits, h => Assert.Equal("ns-a", h.Memory.Namespace));
+    }
+
+    [Fact]
+    public async Task Search_RespectsMetadataEquals_Filter()
+    {
+        using var agentMeta = JsonDocument.Parse("""{"source":"agent","kind":"note"}""");
+        using var browserMeta = JsonDocument.Parse("""{"source":"browser","kind":"note"}""");
+        await _store.WriteAsync(new WriteRequest("shared topic", Metadata: agentMeta));
+        await _store.WriteAsync(new WriteRequest("shared topic", Metadata: browserMeta));
+
+        var hits = await Collect(_store.SearchAsync(new SearchQuery(
+            "shared",
+            Mode: SearchMode.Lexical,
+            MetadataEquals: new Dictionary<string, string>
+            {
+                ["source"] = "agent",
+                ["kind"] = "note",
+            })));
+
+        Assert.Single(hits);
+        Assert.Equal("shared topic", hits[0].Memory.Content);
+        Assert.Equal("agent", hits[0].Memory.Metadata!.RootElement.GetProperty("source").GetString());
     }
 
     [Fact]

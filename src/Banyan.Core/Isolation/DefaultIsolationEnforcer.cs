@@ -17,32 +17,48 @@ public sealed class DefaultIsolationEnforcer : IIsolationEnforcer
 
     public SearchQuery ApplyScope(IsolationContext ctx, SearchQuery query)
     {
-        var allowed = ctx.ReadableNamespaces();
-
-        // Narrow any caller-requested namespaces to the allowed set; never widen.
-        IReadOnlyList<string> scoped;
-        if (query.Namespaces is { Count: > 0 } requested)
-        {
-            scoped = requested.Where(n => allowed.Contains(n, StringComparer.Ordinal)).ToArray();
-            if (scoped.Count == 0)
-                throw new IsolationDeniedException("requested namespaces are outside the isolation boundary");
-        }
-        else if (query.Namespace is { Length: > 0 } single)
-        {
-            if (!allowed.Contains(single, StringComparer.Ordinal))
-                throw new IsolationDeniedException($"namespace '{single}' is outside the isolation boundary");
-            scoped = new[] { single };
-        }
-        else
-        {
-            scoped = allowed;
-        }
-
+        var scoped = ScopeNamespaces(ctx, query.Namespace, query.Namespaces);
         return query with
         {
             Namespace = scoped.Count == 1 ? scoped[0] : null,
             Namespaces = scoped,
         };
+    }
+
+    public MemoryListQuery ApplyScope(IsolationContext ctx, MemoryListQuery query)
+    {
+        var scoped = ScopeNamespaces(ctx, query.Namespace, query.Namespaces);
+        return query with
+        {
+            Namespace = scoped.Count == 1 ? scoped[0] : null,
+            Namespaces = scoped,
+        };
+    }
+
+    private static IReadOnlyList<string> ScopeNamespaces(
+        IsolationContext ctx,
+        string? singleNamespace,
+        IReadOnlyList<string>? namespaces)
+    {
+        var allowed = ctx.ReadableNamespaces();
+
+        // Narrow any caller-requested namespaces to the allowed set; never widen.
+        if (namespaces is { Count: > 0 } requested)
+        {
+            var scoped = requested.Where(n => allowed.Contains(n, StringComparer.Ordinal)).ToArray();
+            if (scoped.Length == 0)
+                throw new IsolationDeniedException("requested namespaces are outside the isolation boundary");
+            return scoped;
+        }
+
+        if (singleNamespace is { Length: > 0 } single)
+        {
+            if (!allowed.Contains(single, StringComparer.Ordinal))
+                throw new IsolationDeniedException($"namespace '{single}' is outside the isolation boundary");
+            return [single];
+        }
+
+        return allowed;
     }
 
     public void AssertNamespaceWritable(IsolationContext ctx, string targetNamespace)

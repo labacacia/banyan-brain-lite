@@ -10,19 +10,31 @@ namespace Banyan.Mcp;
 
 public sealed record McpDefaults(string Namespace);
 
+public interface IBanyanMcpMemoryStoreAccessor
+{
+    IMemoryStore Current { get; }
+}
+
+public sealed class StaticBanyanMcpMemoryStoreAccessor(IMemoryStore store) : IBanyanMcpMemoryStoreAccessor
+{
+    public IMemoryStore Current => store;
+}
+
 public interface IBanyanMcpAgentContext
 {
     string? CurrentAgentNid { get; }
+    string? DefaultWriteNamespace { get; }
 }
 
 public sealed class NullBanyanMcpAgentContext : IBanyanMcpAgentContext
 {
     public string? CurrentAgentNid => null;
+    public string? DefaultWriteNamespace => null;
 }
 
 [McpServerToolType]
 public sealed class BanyanMemoryTools(
-    IMemoryStore store,
+    IBanyanMcpMemoryStoreAccessor storeAccessor,
     McpDefaults defaults,
     IBanyanMcpAgentContext agentContext)
 {
@@ -47,6 +59,7 @@ public sealed class BanyanMemoryTools(
         };
 
         var hits = new List<SearchHit>();
+        var store = storeAccessor.Current;
         await foreach (var h in store.SearchAsync(new SearchQuery(query, k, @namespace, sm)))
             hits.Add(h);
 
@@ -55,6 +68,32 @@ public sealed class BanyanMemoryTools(
 
         return string.Join("\n\n", hits.Select((h, i) =>
             $"[{i + 1}] score={h.Score:F3}  id={h.Memory.Id}  ns={h.Memory.Namespace}\n{h.Memory.Content}"));
+    }
+
+    [McpServerTool(Name = "list")]
+    [Description(
+        "List the most recently updated Banyan memories without a search query. " +
+        "Use this at session start to ground recent context. " +
+        "Returns newest-first memories with ID, namespace, and update time.")]
+    public async Task<string> ListAsync(
+        [Description(
+            "Namespace to scope the list (e.g. 'user-alice', 'project-banyan'). " +
+            "Omit to list across all visible namespaces.")] string? @namespace = null,
+        [Description("Maximum number of memories to return")] int limit = 10)
+    {
+        if (limit <= 0)
+            return "No memories found.";
+
+        var memories = new List<Memory>();
+        var store = storeAccessor.Current;
+        await foreach (var memory in store.ListAsync(new MemoryListQuery(limit, Namespace: @namespace)))
+            memories.Add(memory);
+
+        if (memories.Count == 0)
+            return "No memories found.";
+
+        return string.Join("\n\n", memories.Select((m, i) =>
+            $"[{i + 1}] id={m.Id}  ns={m.Namespace}  updated={m.UpdatedAt:O}\n{m.Content}"));
     }
 
     [McpServerTool(Name = "remember")]
@@ -66,9 +105,10 @@ public sealed class BanyanMemoryTools(
         [Description("Content to store - a distilled fact or preference, not a raw conversation log")] string content,
         [Description("Namespace for this memory (e.g. 'user-alice'). Uses the server default if omitted.")] string? @namespace = null)
     {
+        var store = storeAccessor.Current;
         var id = await store.WriteAsync(new WriteRequest(
             Content: content,
-            Namespace: @namespace ?? defaults.Namespace,
+            Namespace: @namespace ?? agentContext.DefaultWriteNamespace ?? defaults.Namespace,
             AgentNid: agentContext.CurrentAgentNid));
         return $"Stored. id={id}";
     }
@@ -82,6 +122,7 @@ public sealed class BanyanMemoryTools(
         if (!Guid.TryParse(memoryId, out var guid))
             return $"Invalid memory ID: '{memoryId}'. Must be a UUID.";
 
+        var store = storeAccessor.Current;
         await store.UpdateAsync(new MemoryId(guid), new UpdateRequest(content, AgentNid: agentContext.CurrentAgentNid));
         return $"Updated. id={memoryId}";
     }
@@ -98,6 +139,7 @@ public sealed class BanyanMemoryTools(
         if (!Guid.TryParse(memoryId, out var guid))
             return $"Invalid memory ID: '{memoryId}'. Must be a UUID.";
 
+        var store = storeAccessor.Current;
         await store.ForgetAsync(new MemoryId(guid), reason);
         return $"Forgotten. id={memoryId}";
     }
