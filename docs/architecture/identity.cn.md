@@ -9,7 +9,7 @@
 | 轨道 | 主体 | 载体 | 签发方 | 校验方 | 项目 |
 |---|---|---|---|---|---|
 | NID | Agent / Memory Node | NCP IdentFrame 内的 X.509 证书 | `INipCaProvider`（embedded mini-CA 或 nip-ca-server） | Memory Node 中间件 | `Banyan.Auth` |
-| OLS | Operator / 管理员 | RS256 JWT (Bearer) | OLS.Root.Oidc token endpoint | Banyan admin / CLI | `Banyan.Identity`（新增） |
+| OLS | Operator / 管理员 | RS256 JWT (Bearer) | InnoLotus.Root.Oidc token endpoint | Banyan admin / CLI | `Banyan.Identity`（新增） |
 
 两轨永不在同一通信链路上混用 — 人不会发 NID，agent 不会发 JWT。
 
@@ -17,7 +17,7 @@
 
 ```
 src/Banyan.Identity/
-├── Banyan.Identity.csproj           # net10.0; 引 OLS.Root.Core/Authentication/Authorisation/Oidc + Microsoft.Data.Sqlite
+├── Banyan.Identity.csproj           # net10.0; 引 InnoLotus.Root.Core/Authentication/Authorisation/Oidc + Microsoft.Data.Sqlite
 ├── BanyanIdentityOptions.cs         # DB 路径、签名密钥路径、token 生命周期、CLI client_id
 ├── Stores/
 │   ├── IdentityMigrations.cs        # identity.db 的原生 SQL migrations
@@ -34,7 +34,7 @@ src/Banyan.Identity/
 └── Extensions/
     └── BanyanIdentityServiceCollectionExtensions.cs
         // AddBanyanIdentity(this IServiceCollection, Action<BanyanIdentityOptions>)
-        // 内部调 AddOlsIdentityCore + AddOlsAuthentication + AddOlsAuthorisation + AddOlsOidc
+        // 内部调 AddRootCore + AddRootAuthentication + AddRootAuthorisation + AddRootOidc
         // 并把所有 SQLite store 注册到指定的 identity.db
 ```
 

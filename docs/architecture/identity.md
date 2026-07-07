@@ -9,7 +9,7 @@ English | [中文版](./identity.cn.md)
 | Track | Subjects | Carrier | Issued by | Verified by | Project |
 |---|---|---|---|---|---|
 | NID | Agents, Memory Nodes | X.509 cert in NCP IdentFrame | `INipCaProvider` (embedded mini-CA or external nip-ca-server) | Memory Node middleware | `Banyan.Auth` |
-| OLS | Operators, admins | RS256 JWT (Bearer) | OLS.Root.Oidc token endpoint | Banyan admin/CLI surface | `Banyan.Identity` (new) |
+| OLS | Operators, admins | RS256 JWT (Bearer) | InnoLotus.Root.Oidc token endpoint | Banyan admin/CLI surface | `Banyan.Identity` (new) |
 
 The two tracks never overlap on the wire — humans never get NIDs, agents never get JWTs.
 
@@ -17,7 +17,7 @@ The two tracks never overlap on the wire — humans never get NIDs, agents never
 
 ```
 src/Banyan.Identity/
-├── Banyan.Identity.csproj           # net10.0, refs OLS.Root.Core/Authentication/Authorisation/Oidc + Microsoft.Data.Sqlite
+├── Banyan.Identity.csproj           # net10.0, refs InnoLotus.Root.Core/Authentication/Authorisation/Oidc + Microsoft.Data.Sqlite
 ├── BanyanIdentityOptions.cs         # DB path, signing-key path, token lifetimes, CLI client_id
 ├── Stores/
 │   ├── IdentityMigrations.cs        # raw-SQL migrations against identity.db
@@ -34,7 +34,7 @@ src/Banyan.Identity/
 └── Extensions/
     └── BanyanIdentityServiceCollectionExtensions.cs
         // AddBanyanIdentity(this IServiceCollection, Action<BanyanIdentityOptions>)
-        // wires AddOlsIdentityCore + AddOlsAuthentication + AddOlsAuthorisation + AddOlsOidc
+        // wires AddRootCore + AddRootAuthentication + AddRootAuthorisation + AddRootOidc
         // + registers all SQLite stores against the configured identity.db
 ```
 

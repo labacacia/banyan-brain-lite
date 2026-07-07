@@ -20,6 +20,7 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="AntDesign" Version="0.20.*" />
+    <PackageReference Include="Ivy.Hub.Client" Version="0.1.0-alpha.6" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.*" />
     <!-- DPAPI for at-rest protection of the auto-generated local CA passphrase (Windows). -->
     <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="10.*" />

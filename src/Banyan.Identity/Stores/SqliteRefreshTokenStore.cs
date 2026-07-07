@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.Data.Sqlite;
-using OLS.Root.Authentication.Models;
-using OLS.Root.Authentication.Stores;
-using OLS.Root.Core.Models;
+using InnoLotus.Root.Authentication.Models;
+using InnoLotus.Root.Authentication.Stores;
+using InnoLotus.Root.Core.Models;
 
 namespace Banyan.Identity.Stores;
 

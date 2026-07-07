@@ -1,12 +1,12 @@
 English | [中文版](./ols-surface-reference.cn.md)
 
-# OLS.Root API Surface Reference
+# InnoLotus.Root API Surface Reference
 
-> Reflected from OLS.Root.* `1.0.0-alpha.1` (net10.0). Source: Nexus `nuget-hosted` on `nexus-lc01.starfield.com.au`. Used by `Banyan.Identity` to design the SQLite identity store.
+> Reflected from InnoLotus.Root.* `1.0.0-alpha.1` (net10.0). Source: Nexus `nuget-hosted` on `nexus-lc01.starfield.com.au`. Used by `Banyan.Identity` to design the SQLite identity store.
 
 ## Store interfaces (we must implement these)
 
-### From OLS.Root.Core (`OLS.Root.Core.Stores`)
+### From InnoLotus.Root.Core (`InnoLotus.Root.Core.Stores`)
 
 | Interface | Methods (abridged) |
 |---|---|
@@ -18,13 +18,13 @@ English | [中文版](./ols-surface-reference.cn.md)
 | `IUserTwoFactorStore<TUser>` | Get/SetTwoFactorEnabled |
 | `IRoleStore<TRole>` | Create / Update / Delete / FindByIdAsync / FindByNameAsync / Get-Set Name / NormalizedName |
 
-### From OLS.Root.Authentication (`OLS.Root.Authentication.Stores`)
+### From InnoLotus.Root.Authentication (`InnoLotus.Root.Authentication.Stores`)
 
 | Interface | Methods |
 |---|---|
 | `IRefreshTokenStore<TUser>` | CreateAsync, FindByHashAsync, RevokeAsync(tokenId, replacedByTokenId), RevokeAllForUserAsync |
 
-### From OLS.Root.Oidc (`OLS.Root.Oidc.Stores`)
+### From InnoLotus.Root.Oidc (`InnoLotus.Root.Oidc.Stores`)
 
 | Interface | Methods |
 |---|---|
@@ -77,10 +77,10 @@ LastPolledAt, Interval, CreatedAt, ExpiresAt, IsExpired (computed)`
 
 | Call | Effect |
 |---|---|
-| `services.AddOlsIdentityCore(o => …)` | Returns `IdentityBuilder`; configures `IdentityOptions`. Stores must be registered separately. |
-| `services.AddOlsIdentityTelemetry()` | Activity / metric source registration |
-| `services.AddOlsAuthentication(o => …)` | JWT validation + sign-in manager |
+| `services.AddRootCore(o => …)` | Returns `IdentityBuilder`; configures `IdentityOptions`. Stores must be registered separately. |
+| `services.AddRootTelemetry()` | Activity / metric source registration |
+| `services.AddRootAuthentication(o => …)` | JWT validation + sign-in manager |
 | `services.AddRefreshTokenStore()` | Marker — actual store impl provided by us |
-| `services.AddOlsAuthorisation(o => …)` | RBAC + dynamic policy provider |
-| `services.AddOlsOidc(o => …)` | OIDC server pipeline (token/authorize/discovery) |
-| `endpoints.MapOlsOidcEndpoints()` | Routes `/connect/token`, `/connect/authorize`, `/.well-known/openid-configuration`, etc. |
+| `services.AddRootAuthorisation(o => …)` | RBAC + dynamic policy provider |
+| `services.AddRootOidc(o => …)` | OIDC server pipeline (token/authorize/discovery) |
+| `endpoints.MapRootOidcEndpoints()` | Routes `/connect/token`, `/connect/authorize`, `/.well-known/openid-configuration`, etc. |

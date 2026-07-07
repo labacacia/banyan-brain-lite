@@ -15,7 +15,7 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
-using OLS.Root.Oidc.Extensions;
+using InnoLotus.Root.Oidc.Extensions;
 using Xunit;
 
 namespace Banyan.Auth.Tests;
@@ -89,7 +89,7 @@ public sealed class AdminSetupTests : IAsyncLifetime
         _app.UseSessionCookie();
         _app.UseAuthentication();
         _app.UseAuthorization();
-        _app.MapOlsOidcEndpoints();
+        _app.MapRootOidcEndpoints();
         SetupEndpoints.Map(_app);
         BrowserAuthEndpoints.Map(_app);
 

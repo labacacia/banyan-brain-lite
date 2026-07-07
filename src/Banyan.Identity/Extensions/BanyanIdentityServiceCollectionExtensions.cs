@@ -5,21 +5,21 @@ using Banyan.Identity.Crypto;
 using Banyan.Identity.Stores;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using OLS.Root.Authentication.Extensions;
-using OLS.Root.Authentication.Stores;
-using OLS.Root.Authorisation.Extensions;
-using OLS.Root.Core.Extensions;
-using OLS.Root.Core.Models;
-using OLS.Root.Core.Stores;
-using OLS.Root.Oidc.Extensions;
-using OLS.Root.Oidc.Stores;
+using InnoLotus.Root.Authentication.Extensions;
+using InnoLotus.Root.Authentication.Stores;
+using InnoLotus.Root.Authorisation.Extensions;
+using InnoLotus.Root.Core.Extensions;
+using InnoLotus.Root.Core.Models;
+using InnoLotus.Root.Core.Stores;
+using InnoLotus.Root.Oidc.Extensions;
+using InnoLotus.Root.Oidc.Stores;
 
 namespace Banyan.Identity.Extensions;
 
 public static class BanyanIdentityServiceCollectionExtensions
 {
     /// <summary>
-    /// Wires Banyan's SQLite-backed identity stores against OLS.Root and configures
+    /// Wires Banyan's SQLite-backed identity stores against InnoLotus.Root and configures
     /// JWT/OIDC issuance from <see cref="BanyanIdentityOptions"/>. The signing key
     /// (PEM at <see cref="BanyanIdentityOptions.SigningKeyPath"/>) is loaded eagerly,
     /// so it must exist when this method is called.
@@ -59,9 +59,9 @@ public static class BanyanIdentityServiceCollectionExtensions
 
         // ── OLS pipelines ─────────────────────────────────────────────────────
 
-        services.AddOlsIdentityCore<IdentityUser>(_ => { });
+        services.AddRootCore<IdentityUser>(_ => { });
 
-        services.AddOlsAuthentication<IdentityUser>(authOpts =>
+        services.AddRootAuthentication<IdentityUser>(authOpts =>
         {
             authOpts.Jwt.Issuer             = opts.Issuer;
             authOpts.Jwt.Audience           = opts.Audience;
@@ -74,9 +74,9 @@ public static class BanyanIdentityServiceCollectionExtensions
         // reflection, requiring its ctor deps to be in DI). Our SqliteRefreshTokenStore takes a SqliteConnection
         // owned by SqliteIdentityStore, so we already registered IRefreshTokenStore<IdentityUser> by factory above.
 
-        services.AddOlsAuthorisation(_ => { });
+        services.AddRootAuthorisation(_ => { });
 
-        services.AddOlsOidc(oidcOpts =>
+        services.AddRootOidc(oidcOpts =>
         {
             oidcOpts.IssuerUri              = opts.Issuer;
             oidcOpts.SigningCredentials     = signingCreds;

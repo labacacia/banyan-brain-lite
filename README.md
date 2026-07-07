@@ -160,7 +160,7 @@ Commercial editions and enterprise deployment options are maintained separately.
 
 - [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/NPS-Release) — Neural Protocol Suite stack
 - [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — remote NIP CA server
-- [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — human-side identity stack
+- [InnoLotus.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — human-side identity stack
 - [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + Microsoft.ML.Tokenizers — ONNX inference and WordPiece tokenization
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — multilingual sentence embeddings
 - [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite vector index

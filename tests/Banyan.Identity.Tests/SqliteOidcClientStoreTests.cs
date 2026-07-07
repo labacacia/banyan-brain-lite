@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Banyan.Identity;
-using OLS.Root.Oidc.Models;
+using InnoLotus.Root.Oidc.Models;
 using Xunit;
 
 namespace Banyan.Identity.Tests;

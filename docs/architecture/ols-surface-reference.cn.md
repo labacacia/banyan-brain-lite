@@ -1,12 +1,12 @@
 [English Version](./ols-surface-reference.md) | 中文版
 
-# OLS.Root API 表面参考
+# InnoLotus.Root API 表面参考
 
-> 反射自 OLS.Root.* `1.0.0-alpha.1`（net10.0），来源 `nexus-lc01.starfield.com.au` 的 `nuget-hosted` 仓库。`Banyan.Identity` 据此设计 SQLite 身份存储。
+> 反射自 InnoLotus.Root.* `1.0.0-alpha.1`（net10.0），来源 `nexus-lc01.starfield.com.au` 的 `nuget-hosted` 仓库。`Banyan.Identity` 据此设计 SQLite 身份存储。
 
 ## 必须实现的 Store 接口
 
-### OLS.Root.Core (`OLS.Root.Core.Stores`)
+### InnoLotus.Root.Core (`InnoLotus.Root.Core.Stores`)
 
 | 接口 | 方法（精简） |
 |---|---|
@@ -18,13 +18,13 @@
 | `IUserTwoFactorStore<TUser>` | Get/SetTwoFactorEnabled |
 | `IRoleStore<TRole>` | Create / Update / Delete / FindByIdAsync / FindByNameAsync / Get-Set Name / NormalizedName |
 
-### OLS.Root.Authentication (`OLS.Root.Authentication.Stores`)
+### InnoLotus.Root.Authentication (`InnoLotus.Root.Authentication.Stores`)
 
 | 接口 | 方法 |
 |---|---|
 | `IRefreshTokenStore<TUser>` | CreateAsync, FindByHashAsync, RevokeAsync(tokenId, replacedByTokenId), RevokeAllForUserAsync |
 
-### OLS.Root.Oidc (`OLS.Root.Oidc.Stores`)
+### InnoLotus.Root.Oidc (`InnoLotus.Root.Oidc.Stores`)
 
 | 接口 | 方法 |
 |---|---|
@@ -77,10 +77,10 @@ LastPolledAt, Interval, CreatedAt, ExpiresAt, IsExpired (computed)`
 
 | 调用 | 作用 |
 |---|---|
-| `services.AddOlsIdentityCore(o => …)` | 返回 `IdentityBuilder`，配置 `IdentityOptions`，store 需另行注册 |
-| `services.AddOlsIdentityTelemetry()` | Activity / metric source 注册 |
-| `services.AddOlsAuthentication(o => …)` | JWT 校验 + SignInManager |
+| `services.AddRootCore(o => …)` | 返回 `IdentityBuilder`，配置 `IdentityOptions`，store 需另行注册 |
+| `services.AddRootTelemetry()` | Activity / metric source 注册 |
+| `services.AddRootAuthentication(o => …)` | JWT 校验 + SignInManager |
 | `services.AddRefreshTokenStore()` | 占位标记，store 实现由我们提供 |
-| `services.AddOlsAuthorisation(o => …)` | RBAC + 动态 policy provider |
-| `services.AddOlsOidc(o => …)` | OIDC server pipeline（token/authorize/discovery） |
-| `endpoints.MapOlsOidcEndpoints()` | 路由 `/connect/token`, `/connect/authorize`, `/.well-known/openid-configuration` 等 |
+| `services.AddRootAuthorisation(o => …)` | RBAC + 动态 policy provider |
+| `services.AddRootOidc(o => …)` | OIDC server pipeline（token/authorize/discovery） |
+| `endpoints.MapRootOidcEndpoints()` | 路由 `/connect/token`, `/connect/authorize`, `/.well-known/openid-configuration` 等 |

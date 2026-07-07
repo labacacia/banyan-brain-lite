@@ -107,7 +107,7 @@ Concurrency is enforced via `concurrency_stamp` on every UPDATE — the
 `SqliteUserStore` / `SqliteRoleStore` rotate the stamp on each write and
 return `IdentityErrors.ConcurrencyFailure()` when it goes stale.
 
-### Why we don't use `OLS.Root.EntityFramework`
+### Why we don't use `InnoLotus.Root.EntityFramework`
 
 The official store implementation requires PostgreSQL via Npgsql. Banyan is
 SQLite-first so it can ship as a single binary, so every store interface is

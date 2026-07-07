@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Security.Claims;
-using OLS.Root.Authentication.Managers;
-using OLS.Root.Core.Models;
+using InnoLotus.Root.Authentication.Managers;
+using InnoLotus.Root.Core.Models;
 
 namespace Banyan.Web.Endpoints;
 

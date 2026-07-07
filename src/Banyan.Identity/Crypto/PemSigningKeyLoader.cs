@@ -9,7 +9,7 @@ namespace Banyan.Identity.Crypto;
 /// <summary>
 /// Loads/generates RSA private keys in PKCS#8 PEM format and adapts them to
 /// <see cref="RsaSecurityKey"/> + <see cref="SigningCredentials"/> for use by
-/// OLS.Root.Authentication (JwtOptions.SigningKey) and OLS.Root.Oidc (OidcOptions.SigningCredentials).
+/// InnoLotus.Root.Authentication (JwtOptions.SigningKey) and InnoLotus.Root.Oidc (OidcOptions.SigningCredentials).
 /// </summary>
 public static class PemSigningKeyLoader
 {

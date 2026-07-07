@@ -155,7 +155,7 @@ tests/
 
 - [LabAcacia.NPS.{Core,NIP,NWP}](https://github.com/labacacia/NPS-Release) — Neural Protocol Suite 协议栈
 - [labacacia/nip-ca-server](https://github.com/labacacia/nip-ca-server) — 远程 NIP CA server
-- [OLS.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — 人类身份栈
+- [InnoLotus.Root.{Core,Authentication,Authorisation,Oidc}](https://github.com/orilynn-studio/ols-root) — 人类身份栈
 - [Microsoft.ML.OnnxRuntime](https://onnxruntime.ai/) + Microsoft.ML.Tokenizers — ONNX 推理和 WordPiece tokenization
 - [Xenova/bge-small-zh-v1.5](https://huggingface.co/Xenova/bge-small-zh-v1.5) — 多语言句向量
 - [asg017/sqlite-vec](https://github.com/asg017/sqlite-vec) — SQLite vector index

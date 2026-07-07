@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using Banyan.Identity.Crypto;
-using OLS.Root.Core.Models;
-using OLS.Root.Core.Results;
-using OLS.Root.Core.Security;
-using OLS.Root.Oidc.Models;
+using InnoLotus.Root.Core.Models;
+using InnoLotus.Root.Core.Results;
+using InnoLotus.Root.Core.Security;
+using InnoLotus.Root.Oidc.Models;
 
 namespace Banyan.Identity;
 
@@ -63,6 +63,53 @@ public static class AdminBootstrapper
         if (!created.Succeeded) return created;
 
         return await store.Users.AddToRoleAsync(user, AdminRoleNormalizedName, ct);
+    }
+
+    public static async Task<IdentityUser> EnsureExternalAdminAsync(
+        SqliteIdentityStore store,
+        string username,
+        string? email = null,
+        CancellationToken ct = default)
+    {
+        username = string.IsNullOrWhiteSpace(username) ? "ivy-hub-user" : username.Trim();
+        var normalized = username.ToUpperInvariant();
+
+        await EnsureAdminRoleAsync(store, ct);
+        var user = await store.Users.FindByNameAsync(normalized, ct);
+        if (user is null)
+        {
+            user = new IdentityUser
+            {
+                UserName = username,
+                NormalizedUserName = normalized,
+                Email = string.IsNullOrWhiteSpace(email) ? $"{username}@ivy-hub" : email,
+                NormalizedEmail = string.IsNullOrWhiteSpace(email) ? $"{normalized}@IVY-HUB" : email.ToUpperInvariant(),
+                EmailConfirmed = true,
+                SecurityStamp = Guid.NewGuid().ToString("N"),
+            };
+            var created = await store.Users.CreateAsync(user, ct);
+            if (!created.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", created.Errors.Select(e => e.Description)));
+        }
+        else
+        {
+            user.Email = string.IsNullOrWhiteSpace(email) ? user.Email : email;
+            user.NormalizedEmail = string.IsNullOrWhiteSpace(email) ? user.NormalizedEmail : email.ToUpperInvariant();
+            user.EmailConfirmed = true;
+            user.SecurityStamp = Guid.NewGuid().ToString("N");
+            var updated = await store.Users.UpdateAsync(user, ct);
+            if (!updated.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", updated.Errors.Select(e => e.Description)));
+        }
+
+        if (!await store.Users.IsInRoleAsync(user, AdminRoleNormalizedName, ct))
+        {
+            var roleResult = await store.Users.AddToRoleAsync(user, AdminRoleNormalizedName, ct);
+            if (!roleResult.Succeeded)
+                throw new InvalidOperationException(string.Join("; ", roleResult.Errors.Select(e => e.Description)));
+        }
+
+        return user;
     }
 
     public enum PasswordResetStatus

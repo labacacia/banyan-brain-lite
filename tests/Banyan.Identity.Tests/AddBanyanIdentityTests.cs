@@ -5,10 +5,10 @@ using Banyan.Identity;
 using Banyan.Identity.Crypto;
 using Banyan.Identity.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using OLS.Root.Authentication.Stores;
-using OLS.Root.Core.Models;
-using OLS.Root.Core.Stores;
-using OLS.Root.Oidc.Stores;
+using InnoLotus.Root.Authentication.Stores;
+using InnoLotus.Root.Core.Models;
+using InnoLotus.Root.Core.Stores;
+using InnoLotus.Root.Oidc.Stores;
 using Xunit;
 
 namespace Banyan.Identity.Tests;

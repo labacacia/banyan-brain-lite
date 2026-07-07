@@ -15,12 +15,13 @@ using Banyan.Observability;
 using Microsoft.Data.Sqlite;
 using Banyan.Web.Components;
 using Banyan.Web.Endpoints;
+using Banyan.Web.IvyHub;
 using Banyan.Web.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using NPS.NIP.Verification;
-using OLS.Root.Oidc.Extensions;
+using InnoLotus.Root.Oidc.Extensions;
 
 namespace Banyan.Web;
 
@@ -56,6 +57,7 @@ public static class WebApp
         builder.Services.AddSingleton(opts);
         builder.Services.AddHttpClient();
         builder.Services.AddProblemDetails();
+        builder.Services.AddBanyanIvyHub(builder.Configuration, opts.Audience);
 
         var memoryDb = WebOptions.ExpandHome(opts.MemoryDbPath);
         Directory.CreateDirectory(Path.GetDirectoryName(memoryDb)!);
@@ -298,8 +300,17 @@ public static class WebApp
 
         app.UseAuthorization();
         app.UseAntiforgery();
-        app.MapOlsOidcEndpoints();
+        app.MapRootOidcEndpoints();
         BrowserAuthEndpoints.Map(app);
+        var ivyHubEndpointOptions = new IvyHubEndpointOptions(
+            BrowserAuthEndpoints.SessionCookieName,
+            WebOptions.ExpandHome(identityOpts.SigningKeyPath),
+            identityOpts.Issuer,
+            identityOpts.Audience,
+            identityOpts.AccessTokenExpiry);
+        IvyHubEndpoints.MapAuth(app.MapGroup("/api/auth").WithTags("auth"), ivyHubEndpointOptions);
+        IvyHubEndpoints.MapAuth(app.MapGroup("/v1/auth").WithTags("auth"), ivyHubEndpointOptions);
+        IvyHubEndpoints.MapProvisioning(app);
         SetupEndpoints.Map(app);
 
         // Mount NID auth only when there's a verifier (i.e. CA was loaded). Otherwise we have no

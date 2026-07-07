@@ -99,7 +99,7 @@ ols_reference_tokens    (token_hash PK, …)
 并发用每行的 `concurrency_stamp` 控制 — `SqliteUserStore` / `SqliteRoleStore`
 每次 UPDATE 旋转 stamp，stamp 过期时返回 `IdentityErrors.ConcurrencyFailure()`。
 
-### 为啥不用 `OLS.Root.EntityFramework`
+### 为啥不用 `InnoLotus.Root.EntityFramework`
 
 官方 store 实装强依赖 Postgres（Npgsql）。Banyan 走 SQLite-only 就为了能单二进制
 ship，所以全套 store 接口都用原生 `Microsoft.Data.Sqlite` 参数化 SQL 重写到

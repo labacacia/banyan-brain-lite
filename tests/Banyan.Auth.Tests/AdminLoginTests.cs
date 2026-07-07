@@ -20,11 +20,11 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
 using NPS.NIP.Verification;
-using OLS.Root.Authentication.Stores;
-using OLS.Root.Core.Models;
-using OLS.Root.Core.Security;
-using OLS.Root.Oidc.Extensions;
-using OLS.Root.Oidc.Models;
+using InnoLotus.Root.Authentication.Stores;
+using InnoLotus.Root.Core.Models;
+using InnoLotus.Root.Core.Security;
+using InnoLotus.Root.Oidc.Extensions;
+using InnoLotus.Root.Oidc.Models;
 using Xunit;
 
 namespace Banyan.Auth.Tests;
@@ -128,7 +128,7 @@ public sealed class AdminLoginTests : IAsyncLifetime
         _app.UseSessionCookie();
         _app.UseAuthentication();
         _app.UseAuthorization();
-        _app.MapOlsOidcEndpoints();
+        _app.MapRootOidcEndpoints();
         BrowserAuthEndpoints.Map(_app);
         _app.UseNidAuthentication();
 

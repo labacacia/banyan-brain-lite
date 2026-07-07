@@ -4,8 +4,8 @@
 using Banyan.Identity;
 using Banyan.Identity.Extensions;
 using Microsoft.Extensions.DependencyInjection;
-using OLS.Root.Core.Models;
-using OLS.Root.Core.Security;
+using InnoLotus.Root.Core.Models;
+using InnoLotus.Root.Core.Security;
 
 namespace Banyan.Cli.Commands;
 
