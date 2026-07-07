@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System.Text.Json;
-using Banyan.Core;
+using System.Text.Json.Nodes;
+using Ivy.ActNode;
 using NPS.NWP.ActionNode;
 using NPS.NWP.Frames;
 
@@ -17,157 +18,57 @@ namespace Banyan.Node;
 ///   memory.forget   — delete a memory
 /// </summary>
 public sealed class BanyanActionNodeProvider(
-    IMemoryStore store,
+    IEnumerable<IActActionHandler> handlers,
     ILogger<BanyanActionNodeProvider> logger) : IActionNodeProvider
 {
     private static readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web);
+    private readonly IReadOnlyDictionary<string, IActActionHandler> _handlers =
+        handlers.ToDictionary(h => h.ActionName, StringComparer.OrdinalIgnoreCase);
 
     public async Task<ActionExecutionResult> ExecuteAsync(
         ActionFrame frame, ActionContext ctx, CancellationToken ct)
     {
         logger.LogDebug("Act node: action={ActionId} agent={Agent}", frame.ActionId, ctx.AgentNid);
 
-        return frame.ActionId switch
-        {
-            "memory.recall"   => await RecallAsync(frame, ctx, ct),
-            "memory.remember" => await RememberAsync(frame, ctx, ct),
-            "memory.update"   => await UpdateAsync(frame, ctx, ct),
-            "memory.forget"   => await ForgetAsync(frame, ctx, ct),
-            _ => throw new InvalidOperationException($"Unknown action id: '{frame.ActionId}'"),
-        };
-    }
+        if (!_handlers.TryGetValue(frame.ActionId, out var handler))
+            throw new InvalidOperationException($"Unknown action id: '{frame.ActionId}'");
 
-    // ── memory.recall ─────────────────────────────────────────────────────
-
-    private async Task<ActionExecutionResult> RecallAsync(
-        ActionFrame frame, ActionContext ctx, CancellationToken ct)
-    {
-        var p         = frame.Params ?? throw new InvalidOperationException("memory.recall: params required.");
-        var query     = Str(p, "query") ?? throw new InvalidOperationException("memory.recall: 'query' is required.");
-        var ns        = Str(p, "namespace");
-        var k         = p.TryGetProperty("k", out var kp) && kp.TryGetInt32(out var ki) ? ki : 5;
-        var modeStr   = Str(p, "mode") ?? "hybrid";
-        var mode      = modeStr.ToLowerInvariant() switch
-        {
-            "lexical" => SearchMode.Lexical,
-            "vector"  => SearchMode.Vector,
-            _         => SearchMode.Hybrid,
-        };
-
-        var hits = new List<object>();
-        await foreach (var h in store.SearchAsync(new SearchQuery(query, k, ns, mode), ct))
-        {
-            hits.Add(new
+        var result = await handler.InvokeAsync(new ActActionContext(
+            Arguments: ToJsonNode(frame.Params),
+            AgentId: ctx.AgentNid,
+            SessionId: ctx.RequestId,
+            WorkspaceId: null,
+            Metadata: new Dictionary<string, string?>
             {
-                memoryId  = h.Memory.Id.ToString(),
-                @namespace = h.Memory.Namespace,
-                content   = h.Memory.Content,
-                score     = h.Score,
-            });
-        }
+                ["priority"] = ctx.Priority,
+                ["task_id"] = ctx.TaskId
+            }
+            .Where(kv => !string.IsNullOrWhiteSpace(kv.Value))
+            .ToDictionary(kv => kv.Key, kv => kv.Value!, StringComparer.OrdinalIgnoreCase)), ct);
 
-        var resultObj = new { count = hits.Count, hits };
+        var resultJson = result?.ToJsonString(_json) ?? "";
         return new ActionExecutionResult
         {
-            Result   = JsonSerializer.SerializeToElement(resultObj, _json),
-            TokenEst = EstimateTokens(hits.Count > 0
-                ? string.Join(" ", hits.Select(h => JsonSerializer.Serialize(h, _json)))
-                : ""),
+            Result = ToJsonElement(result),
+            TokenEst = EstimateTokens(resultJson)
         };
     }
 
-    // ── memory.remember ───────────────────────────────────────────────────
+    private static JsonNode? ToJsonNode(JsonElement? element) =>
+        element is null ? null : JsonNode.Parse(element.Value.GetRawText());
 
-    private async Task<ActionExecutionResult> RememberAsync(
-        ActionFrame frame, ActionContext ctx, CancellationToken ct)
+    private static JsonElement? ToJsonElement(JsonNode? node)
     {
-        var p       = frame.Params ?? throw new InvalidOperationException("memory.remember: params required.");
-        var content = Str(p, "content") ?? throw new InvalidOperationException("memory.remember: 'content' is required.");
-        var ns      = Str(p, "namespace") ?? "default";
-
-        var id = await store.WriteAsync(new WriteRequest(content, ns, AgentNid: ctx.AgentNid), ct);
-
-        return new ActionExecutionResult
-        {
-            Result   = JsonSerializer.SerializeToElement(new { memoryId = id.ToString(), @namespace = ns }, _json),
-            TokenEst = 0,
-        };
+        if (node is null)
+            return null;
+        using var doc = JsonDocument.Parse(node.ToJsonString(_json));
+        return doc.RootElement.Clone();
     }
-
-    // ── memory.update ─────────────────────────────────────────────────────
-
-    private async Task<ActionExecutionResult> UpdateAsync(
-        ActionFrame frame, ActionContext ctx, CancellationToken ct)
-    {
-        var p        = frame.Params ?? throw new InvalidOperationException("memory.update: params required.");
-        var idStr    = Str(p, "memoryId") ?? throw new InvalidOperationException("memory.update: 'memoryId' is required.");
-        var content  = Str(p, "content")  ?? throw new InvalidOperationException("memory.update: 'content' is required.");
-
-        if (!Guid.TryParse(idStr, out var guid))
-            throw new InvalidOperationException($"memory.update: invalid memoryId '{idStr}'.");
-
-        await store.UpdateAsync(new MemoryId(guid), new UpdateRequest(content, AgentNid: ctx.AgentNid), ct);
-
-        return new ActionExecutionResult { Result = JsonSerializer.SerializeToElement(new { memoryId = idStr, updated = true }, _json) };
-    }
-
-    // ── memory.forget ─────────────────────────────────────────────────────
-
-    private async Task<ActionExecutionResult> ForgetAsync(
-        ActionFrame frame, ActionContext ctx, CancellationToken ct)
-    {
-        var p     = frame.Params ?? throw new InvalidOperationException("memory.forget: params required.");
-        var idStr = Str(p, "memoryId") ?? throw new InvalidOperationException("memory.forget: 'memoryId' is required.");
-        var reason = Str(p, "reason");
-
-        if (!Guid.TryParse(idStr, out var guid))
-            throw new InvalidOperationException($"memory.forget: invalid memoryId '{idStr}'.");
-
-        await store.ForgetAsync(new MemoryId(guid), reason, ct);
-
-        return new ActionExecutionResult { Result = JsonSerializer.SerializeToElement(new { memoryId = idStr, forgotten = true }, _json) };
-    }
-
-    // ── Helpers ───────────────────────────────────────────────────────────
-
-    private static string? Str(JsonElement el, string key) =>
-        el.TryGetProperty(key, out var p) && p.ValueKind == JsonValueKind.String
-            ? p.GetString()
-            : null;
 
     private static uint EstimateTokens(string text) =>
         (uint)Math.Max(0, text.Length / 4);
 
     /// <summary>Action registry declared in the NWM action list.</summary>
-    public static Dictionary<string, ActionSpec> BuildActions() => new()
-    {
-        ["memory.recall"] = new ActionSpec
-        {
-            Description      = "Search stored Banyan memories by meaning and keywords. Returns ranked hits.",
-            Async            = false,
-            Idempotent       = true,
-            TimeoutMsDefault = 10_000,
-        },
-        ["memory.remember"] = new ActionSpec
-        {
-            Description      = "Persist a new memory for future sessions. Returns the assigned memoryId.",
-            Async            = false,
-            Idempotent       = false,
-            TimeoutMsDefault = 5_000,
-        },
-        ["memory.update"] = new ActionSpec
-        {
-            Description      = "Replace the content of an existing memory without changing its ID.",
-            Async            = false,
-            Idempotent       = true,
-            TimeoutMsDefault = 5_000,
-        },
-        ["memory.forget"] = new ActionSpec
-        {
-            Description      = "Delete a stored memory by ID. The audit trace is preserved.",
-            Async            = false,
-            Idempotent       = true,
-            TimeoutMsDefault = 5_000,
-        },
-    };
+    public static IReadOnlyDictionary<string, ActionSpec> BuildActions() =>
+        BanyanActNodeActions.CreateNwpActionSpecs();
 }

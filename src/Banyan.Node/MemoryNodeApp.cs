@@ -7,6 +7,7 @@ using Banyan.Embedders;
 using Banyan.Lite;
 using Banyan.Node.Auth;
 using NPS.NIP.Verification;
+using NPS.NWP.ActionNode;
 using NPS.NWP.Extensions;
 using NPS.NWP.MemoryNode;
 using NPS.NWP.Nwm;
@@ -41,6 +42,7 @@ public static class MemoryNodeApp
             $"Data Source={memoryDb}", embedder, opts.SqliteVecLibPath, ct: ct);
         builder.Services.AddSingleton(embedder);
         builder.Services.AddSingleton(memoryStore);
+        builder.Services.AddSingleton<IMemoryStore>(memoryStore);
 
         // ── Embedded CA — auto-trusts itself when present ────────────────────
         EmbeddedNipCa? ca = null;
@@ -78,6 +80,9 @@ public static class MemoryNodeApp
         });
         builder.Services.AddSingleton<BanyanMemoryProvider>();
         builder.Services.AddSingleton<IMemoryNodeProvider>(sp => sp.GetRequiredService<BanyanMemoryProvider>());
+        builder.Services.AddSingleton(sp => BanyanActNodeActions.CreateHandlers(sp.GetRequiredService<IMemoryStore>()));
+        builder.Services.AddSingleton<IEnumerable<Ivy.ActNode.IActActionHandler>>(sp =>
+            sp.GetRequiredService<IReadOnlyList<Ivy.ActNode.IActActionHandler>>());
         builder.Services.AddMemoryNode<BanyanMemoryProvider>(o =>
         {
             o.NodeId             = opts.NodeId;
@@ -89,6 +94,20 @@ public static class MemoryNodeApp
             o.DefaultTokenBudget = opts.DefaultTokenBudget;
             o.Schema             = BanyanMemoryProvider.BuildSchema();
         });
+        if (opts.EnableActNode)
+        {
+            builder.Services.AddActionNode<BanyanActionNodeProvider>(o =>
+            {
+                o.NodeId             = opts.NodeId;
+                o.DisplayName        = $"{opts.DisplayName} Actions";
+                o.PathPrefix         = "/api/act";
+                o.RequireAuth        = opts.RequireAuth;
+                o.Actions            = BanyanActionNodeProvider.BuildActions();
+                o.DefaultTimeoutMs   = 5_000;
+                o.MaxTimeoutMs       = 30_000;
+                o.DefaultTokenBudget = opts.DefaultTokenBudget;
+            });
+        }
 
         // ── NID auth (Lite default = AnonymousAllowed; opt-in WritesRequired/AllRequired) ────
         builder.Services.AddSingleton(new NidAuthenticationOptions { Mode = opts.NidAuthMode });
@@ -130,6 +149,20 @@ public static class MemoryNodeApp
             o.DefaultTokenBudget = opts.DefaultTokenBudget;
             o.Schema             = BanyanMemoryProvider.BuildSchema();
         });
+        if (opts.EnableActNode)
+        {
+            app.UseActionNode<BanyanActionNodeProvider>(o =>
+            {
+                o.NodeId             = opts.NodeId;
+                o.DisplayName        = $"{opts.DisplayName} Actions";
+                o.PathPrefix         = "/api/act";
+                o.RequireAuth        = opts.RequireAuth;
+                o.Actions            = BanyanActionNodeProvider.BuildActions();
+                o.DefaultTimeoutMs   = 5_000;
+                o.MaxTimeoutMs       = 30_000;
+                o.DefaultTokenBudget = opts.DefaultTokenBudget;
+            });
+        }
 
         Console.WriteLine($"Banyan Memory Node listening on {opts.Urls}");
         Console.WriteLine($"  memory.db        : {memoryDb}");
@@ -137,6 +170,7 @@ public static class MemoryNodeApp
         if (ca is not null)         Console.WriteLine($"  CA (in-process)   : {ca.CaNid}");
         Console.WriteLine($"  trusted issuers  : {opts.TrustedIssuers.Count}");
         Console.WriteLine($"  require auth     : {opts.RequireAuth}");
+        Console.WriteLine($"  act node         : {(opts.EnableActNode ? "/api/act" : "disabled")}");
 
         await app.RunAsync(ct);
     }
